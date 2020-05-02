@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package>
+  <name>reggie_wheel_controller</name>
+  <version>0.0.1</version>
+  <description>
+  TBD
+  </description>
+  <maintainer email="sdale4@asu.edu">Stevie Dale</maintainer>
+  <license>None</license>
+
+  <buildtool_depend version_gte="0.5.68">catkin</buildtool_depend>
+
+  <build_depend>std_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <run_depend>rospy</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>message_runtime</run_depend>
+</package>
