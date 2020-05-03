@@ -1,0 +1,3 @@
+<launch>
+<node name="rviz" pkg="rviz" type="rviz" args="-d $(find reggie_support)/config/reggie_kinect.rviz" />
+</launch>
