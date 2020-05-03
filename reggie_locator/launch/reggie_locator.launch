@@ -1,0 +1,3 @@
+<launch>
+<node name="reggie_locator_node" pkg="reggie_locator" type="reggie_locator_node" output="screen" />
+</launch>
