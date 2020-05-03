@@ -1,7 +1,5 @@
-try:
-    import RPi.GPIO as GPIO
-except:
-    pass
+import RPi.GPIO as GPIO
+
 
 right_wheel_forward = 7
 right_wheel_backward = 8

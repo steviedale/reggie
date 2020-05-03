@@ -1,0 +1,4 @@
+int64 command
+bool long_move
+---
+bool success
