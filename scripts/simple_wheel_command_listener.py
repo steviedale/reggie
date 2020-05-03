@@ -27,13 +27,13 @@ class SimpleWheelCommandListener:
         rospy.loginfo('Long Move? {}'.format(data.long_move))
         
         if data.command == 0:
-            self.simple_wheel_controller.timed_forward(duration=LONG_TRANSLATION if data.long_move else SHORT_TRANSLATION, rate=0.0) 
+            self.simple_wheel_controller.timed_forward(duration=LONG_TRANSLATION if data.long_move else SHORT_TRANSLATION, rate=0.3) 
         elif data.command == 1:
-            self.simple_wheel_controller.timed_backward(duration=LONG_TRANSLATION if data.long_move else SHORT_TRANSLATION, rate=0.0) 
+            self.simple_wheel_controller.timed_backward(duration=LONG_TRANSLATION if data.long_move else SHORT_TRANSLATION, rate=0.3) 
         elif data.command == 2:
-            self.simple_wheel_controller.timed_left_turn(duration=LONG_ROTATION if data.long_move else SHORT_ROTATION, rate=0.0) 
+            self.simple_wheel_controller.timed_left_turn(duration=LONG_ROTATION if data.long_move else SHORT_ROTATION, rate=0.3) 
         elif data.command == 3:
-            self.simple_wheel_controller.timed_right_turn(duration=LONG_ROTATION if data.long_move else SHORT_ROTATION, rate=0.0) 
+            self.simple_wheel_controller.timed_right_turn(duration=LONG_ROTATION if data.long_move else SHORT_ROTATION, rate=0.3) 
 
         return WheelCommandResponse(True)
 
