@@ -17,12 +17,12 @@ class SimpleWheelController(WheelController):
         time.sleep(duration)
         self.stop()
 
-    def timed_turn_right(self, duration=1.0, rate=0.0):
+    def timed_right_turn(self, duration=1.0, rate=0.0):
         self.turn_right(rate)
         time.sleep(duration)
         self.stop()
 
-    def timed_turn_left(self, duration=1.0, rate=0.0):
+    def timed_left_turn(self, duration=1.0, rate=0.0):
         self.turn_left(rate)
         time.sleep(duration)
         self.stop()
