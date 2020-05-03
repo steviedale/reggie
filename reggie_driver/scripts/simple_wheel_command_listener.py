@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from reggie_wheel_controller.srv import WheelCommand, WheelCommandResponse
+from reggie_driver.srv import WheelCommand, WheelCommandResponse
 from simple_wheel_controller import SimpleWheelController
 
 
