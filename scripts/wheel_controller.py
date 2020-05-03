@@ -28,20 +28,20 @@ class WheelController:
         self.left_bwd_pwm.start(0)
 
     def forward(self, rate=1.0):
-        self.set_right_wheel_forward(rate)
-        self.set_left_wheel_forward(rate)
+        self.set_right_wheel_velocity(rate)
+        self.set_left_wheel_velocity(rate)
 
     def backward(self, rate=1.0):
-        self.set_right_wheel_forward(-1*rate)
-        self.set_left_wheel_forward(-1*rate)
+        self.set_right_wheel_velocity(-1*rate)
+        self.set_left_wheel_velocity(-1*rate)
 
     def turn_left(self, rate=1.0):
-        self.set_right_wheel_forward(rate)
-        self.set_left_wheel_forward(-1*rate)
+        self.set_right_wheel_velocity(rate)
+        self.set_left_wheel_velocity(-1*rate)
 
     def turn_right(self, rate=1.0):
-        self.set_right_wheel_forward(-1*rate)
-        self.set_left_wheel_forward(rate)
+        self.set_right_wheel_velocity(-1*rate)
+        self.set_left_wheel_velocity(rate)
 
     def stop(self):
         self.right_fwd_pwm.ChangeDutyCycle(0)
