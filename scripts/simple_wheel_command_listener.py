@@ -39,7 +39,7 @@ class SimpleWheelCommandListener:
 
 
 if __name__ == '__main__':
-    listener = WheelVelocityListener()
+    listener = SimpleWheelCommandListener()
 
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
