@@ -7,8 +7,8 @@ from simple_wheel_controller import SimpleWheelController
 
 SHORT_TRANSLATION = 0.2
 LONG_TRANSLATION = 0.5
-SHORT_ROTATION = 0.1
-LONG_ROTATION = 0.25
+SHORT_ROTATION = 0.2
+LONG_ROTATION = 0.5
 
 class SimpleWheelCommandListener:
 
