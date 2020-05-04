@@ -6,9 +6,14 @@
 
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/surface/convex_hull.h>
+#include <pcl/filters/crop_hull.h>
+
 #include <tf2_eigen/tf2_eigen.h>
 
 #include <string>
+
 
 int main(int argc, char **argv)
 {
@@ -65,6 +70,39 @@ int main(int argc, char **argv)
   pcl::toROSMsg(*toRemove_cloud_ptr, toRemove_cloud_msg);
 
   toRemove_cloud_pub.publish(toRemove_cloud_msg);
+
+  // cluster groups of point clouds
+  pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> euclidean_cluster;
+  std::vector<pcl::PointIndices> cluster_groups;
+  euclidean_cluster.setInputCloud(toRemove_cloud_ptr);
+  euclidean_cluster.setClusterTolerance(0.01);
+  euclidean_cluster.setMinClusterSize(10);
+  euclidean_cluster.setMaxClusterSize(10000);
+  euclidean_cluster.extract(cluster_groups);
+  
+  // make a convex hull for each group
+  std::vector<std::vector<pcl::Vertices>> hull_polygons_list;
+  std::vector<pcl::PointCloud<pcl::PointXYZRGB>> hull_cloud_list;
+  for (int i = 0; i < cluster_groups.size(); ++i)
+  {
+    // convert indices to cloud (for this group)
+    pcl::PointIndices::Ptr indices_ptr = boost::make_shared<pcl::PointIndices>(cluster_groups[i]);
+    pcl::ExtractIndices<pcl::PointXYZRGB> extract_indices_2; 
+    extract_indices_2.setInputCloud(toRemove_cloud_ptr);
+    extract_indices_2.setIndices(indices_ptr);
+    extract_indices_2.setNegative(false);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr hull_cloud_ptr;
+    extract_indices.filter(*hull_cloud_ptr);
+
+    // create convex hull (for this group)
+    pcl::ConvexHull<pcl::PointXYZRGB> convex_hull;
+    std::vector<pcl::Vertices> hull_polygons;
+    pcl::PointCloud<pcl::PointXYZRGB> hull_points;
+    convex_hull.setInputCloud(hull_cloud_ptr);
+    convex_hull.reconstruct(hull_points, hull_polygons); 
+    hull_cloud_list.push_back(hull_points);
+    hull_polygons_list.push_back(hull_polygons);
+  }
 
   ros::spin();
 }
