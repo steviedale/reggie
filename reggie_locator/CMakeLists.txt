@@ -22,7 +22,7 @@ find_package(PCL REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+INCLUDE_DIRS include
 #  LIBRARIES lesson_perception
 #  CATKIN_DEPENDS roscpp sensor_msgs tf
 #  DEPENDS system_lib
@@ -36,6 +36,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
 )
@@ -46,7 +47,7 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(${PROJECT_NAME}_node src/reggie_locator_node.cpp)
+add_executable(${PROJECT_NAME}_node src/reggie_locator.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PCL_LIBRARIES})
