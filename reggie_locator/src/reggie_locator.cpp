@@ -1,35 +1,39 @@
 #include <reggie_locator/reggie_locator.h>
+#include <reggie_locator/k_means.h>
 #include <tf2_ros/transform_listener.h>
 
 #include <pcl_conversions/pcl_conversions.h>
-
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/surface/reconstruction.h>
+#include <pcl/filters/conditional_removal.h>
 #include <pcl/io/ply_io.h>
 
 #include <tf2_eigen/tf2_eigen.h>
 
 #include <string>
+#include <iostream>
 
 
 ReggieLocator::ReggieLocator()
 : nh_()
 , camera_topic_("/camera/depth_registered/points")
 {
-  ros::Publisher pub = nh_.advertise<sensor_msgs::PointCloud2>("map_cleaned", 1);
+  //ros::Publisher pub = nh_.advertise<sensor_msgs::PointCloud2>("map_cleaned", 1);
 
   init_empty_map_cloud_ptr();
   init_exclusion_boundaries();
   init_map_frame();
 
+  /*
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cleaned_map_cloud_ptr = remove_exclusion_boundary_points(empty_map_cloud_ptr_); 
   sensor_msgs::PointCloud2 cloud_msg;
   pcl::toROSMsg(*cloud_map_cloud_ptr, cloud_msg);
   pub.publish(cloud_msg);
+  */
 
   ros::spin();
 }
@@ -149,9 +153,42 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::remove_exclusion_boundary_
   return new_cloud_ptr;
 }
 
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, float min_r, float max_r, float min_g, float max_g, float min_b, float max_b)
+{
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::copyPointCloud(*cloud_ptr, *new_cloud_ptr);
+
+  pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr color_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+  color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::LT, max_r)));
+  color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::GT, min_r)));
+  color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::LT, max_g)));
+  color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::GT, min_g)));
+  color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::LT, max_b)));
+  color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::GT, min_b)));
+
+  pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem(color_cond);
+  condrem.setInputCloud(cloud_ptr);
+  condrem.setKeepOrganized(true);
+
+  condrem.filter(*new_cloud_ptr);
+}
+
 void ReggieLocator::init_map_frame()
 {
-  return;
+
+  std::vector<Boundary> cluster_boundaries = k_means_cluster(empty_map_cloud_ptr_, 4);
+  for(int i = 0; i < cluster_boundaries.size(); ++i)
+  {
+    XYZRGB min_p = cluster_boundaries.at(i).min;
+    XYZRGB max_p = cluster_boundaries.at(i).max;
+
+    std::cout << "X = [" << min_p.x << ", " << max_p.x << "]" << std::endl;
+    std::cout << "Y = [" << min_p.y << ", " << max_p.y << "]" << std::endl;
+    std::cout << "Z = [" << min_p.z << ", " << max_p.z << "]" << std::endl;
+    std::cout << "R = [" << min_p.r << ", " << max_p.r << "]" << std::endl;
+    std::cout << "G = [" << min_p.y << ", " << max_p.g << "]" << std::endl;
+    std::cout << "B = [" << min_p.z << ", " << max_p.b << "]" << std::endl << std::endl;
+  }
 }
 
 void ReggieLocator::get_location()

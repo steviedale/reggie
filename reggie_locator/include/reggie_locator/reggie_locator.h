@@ -29,6 +29,8 @@ public:
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr remove_exclusion_boundary_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, float min_r, float max_r, float min_g, float max_g, float min_b, float max_b);
+
   void init_empty_map_cloud_ptr();
 
   void init_exclusion_boundaries();

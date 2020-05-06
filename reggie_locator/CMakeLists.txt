@@ -46,11 +46,14 @@ include_directories(
 #   src/${PROJECT_NAME}/lesson_perception.cpp
 # )
 
+add_library(k_means src/k_means.cpp)
+target_link_libraries(k_means ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
 ## Declare a cpp executable
 add_executable(${PROJECT_NAME}_node src/reggie_locator.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} k_means)
 
 #############
 ## Install ##
