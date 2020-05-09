@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
 )
 find_package(PCL REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
@@ -25,7 +26,7 @@ catkin_package(
 INCLUDE_DIRS include
 #  LIBRARIES lesson_perception
 #  CATKIN_DEPENDS roscpp sensor_msgs tf
-#  DEPENDS system_lib
+DEPENDS Eigen3
 )
 
 ###########
@@ -39,6 +40,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
+  ${Eigen3_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
@@ -54,6 +56,9 @@ add_executable(${PROJECT_NAME}_node src/reggie_locator.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} k_means)
+
+add_executable(crop_cloud src/crop_cloud.cpp)
+target_link_libraries(crop_cloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 #############
 ## Install ##

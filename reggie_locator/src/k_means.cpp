@@ -4,6 +4,18 @@
 #include <iostream>
 
 
+void print_point(XYZRGB p)
+{
+  std::cout << "==============================" << std::endl;
+  std::cout << "X = " << p.x << std::endl;
+  std::cout << "Y = " << p.y << std::endl;
+  std::cout << "Z = " << p.z << std::endl;
+  std::cout << "R = " << p.r << std::endl;
+  std::cout << "G = " << p.y << std::endl;
+  std::cout << "B = " << p.z << std::endl;
+  std::cout << "==============================" << std::endl;
+}
+
 pcl::PointXYZRGB toPCL(XYZRGB p)
 {
   pcl::PointXYZRGB pcl_p;
@@ -71,8 +83,20 @@ float get_l2_distance(Boundary boundary, XYZRGB p1, XYZRGB p2)
   float dg = (p1.g - p2.g) / (boundary.max.g - boundary.min.g);
   float db = (p1.b - p2.b) / (boundary.max.b - boundary.min.b);
 
+  float p1_total_color = p1.r + p1.g + p1.b;
+  float p1_r_percent = p1.r / p1_total_color;
+  float p1_g_percent = p1.g / p1_total_color;
+  float p1_b_percent = p1.b / p1_total_color;
+
+  float p2_total_color = p2.r + p2.g + p2.b;
+  float p2_r_percent = p2.r / p2_total_color;
+  float p2_g_percent = p2.g / p2_total_color;
+  float p2_b_percent = p2.b / p2_total_color;
+
   //return sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2) + pow(dr, 2) + pow(dg, 2) + pow(db, 2));
-  return sqrt(pow(dr, 2) + pow(dg, 2) + pow(db, 2));
+  //return sqrt(pow(dr, 2) + pow(dg, 2) + pow(db, 2));
+  //return abs(p1.r-p2.r) + abs(p1.g-p2.g) + abs(p1.b-p2.b);
+  return pow(10.0*(p2_r_percent - p1_r_percent), 2) + pow(10.0*(p2_g_percent - p1_g_percent), 2) + pow(10.0*(p2_b_percent - p1_b_percent), 2); 
 }
 
 XYZRGB get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, pcl::PointIndices indices)
@@ -83,7 +107,7 @@ XYZRGB get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, pcl::Point
   float r_mean = 0.0;
   float g_mean = 0.0;
   float b_mean = 0.0;
-  int n = 1;
+  float n = 1.0;
 
   for(int i = 0; i < indices.indices.size(); ++i)
   {
@@ -94,7 +118,7 @@ XYZRGB get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, pcl::Point
     r_mean += (p.r - r_mean) / n;
     g_mean += (p.g - g_mean) / n;
     b_mean += (p.b - b_mean) / n;
-    ++n;
+    n = n + 1.0;
   }
 
   XYZRGB centroid;
@@ -179,6 +203,8 @@ std::vector<Boundary> k_means_cluster(pcl::PointCloud<pcl::PointXYZRGB>::Ptr clo
     for(int i = 0; i < k; ++i)
     {
       centroids[i] = get_centroid(cloud_ptr, next_centroid_indices.at(i));
+      std::cout << "Centroid: " << i << std::endl;
+      print_point(centroids[i]);
     }     
     
     centroid_indices = next_centroid_indices;

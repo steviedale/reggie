@@ -3,8 +3,12 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/PolygonMesh.h>
+#include <Eigen/Dense>
+#include <string>
+#include <tf2_ros/static_transform_broadcaster.h>
 
-
+std::string CAMERA_FRAME = "camera_link";
+std::string MAP_FRAME = "map_frame";
 float EXCLUSION_BOUNDARY_PADDING = 0.02;
 
 struct ExclusionBoundary {
@@ -29,7 +33,14 @@ public:
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr remove_exclusion_boundary_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, float min_r, float max_r, float min_g, float max_g, float min_b, float max_b);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr,
+    float min_pr, float max_pr, float min_pg, float max_pg);
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_biggest_cluster(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
+
+  Eigen::Vector3d get_plane_normal(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
+
+  Eigen::Vector3d get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
   void init_empty_map_cloud_ptr();
 
@@ -42,7 +53,13 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_color_range(pcl::PointCloud<pcl::P
   void camera_callback(sensor_msgs::PointCloud2 msg);
 
   ros::NodeHandle nh_;
+  ros::Publisher cleaned_map_pub;
+  ros::Publisher raw_map_pub;
+  ros::Publisher yellow_marker_pub;
+  ros::Publisher green_marker_pub;
+  tf2_ros::StaticTransformBroadcaster static_broadcaster_;
   std::string camera_topic_;
   std::vector<ExclusionBoundary> exclusion_boundaries_;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr empty_map_cloud_ptr_;
+  Eigen::Isometry3d camera_to_map_tf_;
 };

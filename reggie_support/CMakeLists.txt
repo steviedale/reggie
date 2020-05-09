@@ -3,6 +3,6 @@ project(reggie_support)
 
 find_package(catkin REQUIRED)
 
-install(DIRECTORY launch/
+install(DIRECTORY launch/ config/ rviz/
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
   PATTERN ".svn" EXCLUDE)
