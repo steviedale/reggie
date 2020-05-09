@@ -7,7 +7,7 @@
 #include <string>
 #include <tf2_ros/static_transform_broadcaster.h>
 
-std::string CAMERA_FRAME = "camera_link";
+std::string CAMERA_FRAME = "camera_rgb_optical_frame";
 std::string MAP_FRAME = "map_frame";
 float EXCLUSION_BOUNDARY_PADDING = 0.02;
 
