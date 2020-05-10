@@ -1,10 +1,6 @@
 <launch>
 
-<include file="$(find reggie_support)/launch/reggie.launch" />
-
-<rosparam command="load" file="$(find reggie_support)/config/marker_color_ranges.yaml" />
-
-<node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/kinect.bag"/>
+<rosparam command="load" file="$(find reggie_locator)/config/marker_color_ranges.yaml" />
 
 <node name="reggie_locator_node" pkg="reggie_locator" type="reggie_locator_node" output="screen" />
 

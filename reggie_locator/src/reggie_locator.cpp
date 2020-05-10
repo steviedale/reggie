@@ -1,5 +1,4 @@
 #include <reggie_locator/reggie_locator.h>
-#include <reggie_locator/k_means.h>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
 
@@ -18,6 +17,8 @@
 #include <iostream>
 
 
+bool DEBUG = true;
+
 float percent_red(pcl::PointXYZRGB p)
 {
   return (float)p.r / ((float)p.r + (float)p.g + (float)p.b);
@@ -28,34 +29,43 @@ float percent_green(pcl::PointXYZRGB p)
   return (float)p.g / ((float)p.r + (float)p.g + (float)p.b);
 }
 
+float alpha(pcl::PointXYZRGB p)
+{
+  return ((float)p.r + (float)p.g + (float)p.b) / (255.0 * 3.0);
+}
+
 ReggieLocator::ReggieLocator()
 : nh_()
 , camera_topic_("/camera/depth_registered/points")
 , cleaned_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("cleaned_map", 1))
 , raw_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("raw_map", 1))
-, green_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_marker", 1))
-, yellow_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("yellow_marker", 1))
-, pink_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("pink_marker", 1))
+, green_map_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_map_marker", 1))
+, yellow_map_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("yellow_map_marker", 1))
+, blue_map_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("blue_map_marker", 1))
+, blue_robot_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("blue_robot_marker", 1))
+, green_robot_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_robot_marker", 1))
+, no_map_markers_pub_(nh_.advertise<sensor_msgs::PointCloud2>("no_map_markers", 1))
 {
-  init_empty_map_cloud_ptr();
-  init_exclusion_boundaries();
-  empty_map_cloud_ptr_ = segment_plane(empty_map_cloud_ptr_, false);
+  ros::Duration(5.0).sleep();
+  init_plane_normal();
   init_map_frame();
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cleaned_map_cloud_ptr = remove_exclusion_boundary_points(empty_map_cloud_ptr_);
-  sensor_msgs::PointCloud2 cloud_msg;
-  pcl::toROSMsg(*cleaned_map_cloud_ptr, cloud_msg);
-  cloud_msg.header.frame_id = CAMERA_FRAME;
-  cleaned_map_pub_.publish(cloud_msg);
+  while (true)
+  {
+    update_robot_location();
+    ros::Duration(0.1).sleep();
+    std::cout << "location updated" << std::endl;
+  }
 
   ros::spin();
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::getPointCloud()
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::get_point_cloud()
 {
   sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(camera_topic_, nh_);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::fromROSMsg(*cloud_msg_ptr, *cloud_ptr);
+  std::cout << "num points: " << cloud_ptr->size() << std::endl;
   return remove_nan_points(cloud_ptr);
 }
 
@@ -65,29 +75,12 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::remove_nan_points(pcl::Poi
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(*cloud_ptr, *new_cloud_ptr, indices);
-
-  ROS_INFO_STREAM("Total points: " << new_cloud_ptr->points.size());
-  ROS_INFO_STREAM("Remaining points: " << new_cloud_ptr->points.size());
-
   return new_cloud_ptr;
 }
 
-void ReggieLocator::init_empty_map_cloud_ptr()
+void ReggieLocator::init_plane_normal()
 {
-  /*
-  std::cout << "Clear map and press ENTER";
-  std::string input;
-  std::getline(std::cin, input);
-  */
-  std::cout << "sleeping..." << std::endl;
-  ros::Duration(3.0).sleep();
-  std::cout << "Awake!" << std::endl;
-
-  empty_map_cloud_ptr_ = getPointCloud();
-}
-
-Eigen::Vector3d ReggieLocator::get_plane_normal(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
-{
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr = get_point_cloud();
   pcl::SACSegmentation<pcl::PointXYZRGB> seg;
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
   pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
@@ -105,13 +98,11 @@ Eigen::Vector3d ReggieLocator::get_plane_normal(pcl::PointCloud<pcl::PointXYZRGB
     exit(1);
   }
 
-  Eigen::Vector3d plane_normal(coefficients->values.at(0), coefficients->values.at(1), coefficients->values.at(2));
-  std::cout << "Plane Coefficients: " << coefficients->values.at(0) << ", " << coefficients->values.at(1) << ", " << coefficients->values.at(2) << std::endl;
-
-  return plane_normal;
+  plane_normal_ = Eigen::Vector3d(coefficients->values.at(0), coefficients->values.at(1), coefficients->values.at(2));
+  if (DEBUG) std::cout << "Plane Coefficients: " << coefficients->values.at(0) << ", " << coefficients->values.at(1) << ", " << coefficients->values.at(2) << std::endl;
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_plane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, bool set_negative)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_plane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, bool set_negative, float distance_thresh)
 {
   pcl::SACSegmentation<pcl::PointXYZRGB> seg;
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
@@ -120,7 +111,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_plane(pcl::PointCl
   seg.setModelType(pcl::SACMODEL_PLANE);
   seg.setMethodType(pcl::SAC_RANSAC);
   seg.setMaxIterations(50);
-  seg.setDistanceThreshold(0.05);
+  seg.setDistanceThreshold(distance_thresh);
   seg.setInputCloud(cloud_ptr);
   seg.segment(*inliers, *coefficients);
   if (inliers->indices.size() == 0)
@@ -139,64 +130,23 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_plane(pcl::PointCl
   return new_cloud_ptr;
 }
 
-void ReggieLocator::init_exclusion_boundaries()
-{
-  // remove plane
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr = segment_plane(empty_map_cloud_ptr_, true);
-
-  // cluster groups of point clouds
-  pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> euclidean_cluster;
-  euclidean_cluster.setInputCloud(cloud_ptr);
-  euclidean_cluster.setClusterTolerance(0.1);
-  euclidean_cluster.setMinClusterSize(10);
-  euclidean_cluster.setMaxClusterSize(10000);
-  std::vector<pcl::PointIndices> cluster_groups;
-  euclidean_cluster.extract(cluster_groups);
-  
-  for (int i = 0; i < cluster_groups.size(); ++i)
-  {
-    pcl::PointIndices indices = cluster_groups.at(i);
-
-    pcl::PointXYZRGB first_point = cloud_ptr->points.at(0);
-    ExclusionBoundary boundary;
-    boundary.min_x = boundary.max_x = first_point.x;
-    boundary.min_y = boundary.max_y = first_point.y;
-    boundary.min_z = boundary.max_z = first_point.z;
-
-    for (int j = 0; j < indices.indices.size(); ++j)
-    {
-      pcl::PointXYZRGB p = cloud_ptr->points.at(indices.indices.at(j));
-      if (p.x < boundary.min_x) boundary.min_x = p.x - EXCLUSION_BOUNDARY_PADDING;
-      if (p.y < boundary.min_y) boundary.min_y = p.y - EXCLUSION_BOUNDARY_PADDING;
-      if (p.z < boundary.min_z) boundary.min_z = p.z - EXCLUSION_BOUNDARY_PADDING;
-      if (p.x > boundary.max_x) boundary.max_x = p.x + EXCLUSION_BOUNDARY_PADDING;
-      if (p.y > boundary.max_y) boundary.max_y = p.y + EXCLUSION_BOUNDARY_PADDING;
-      if (p.z > boundary.max_z) boundary.max_z = p.z + EXCLUSION_BOUNDARY_PADDING;
-    }
-
-    exclusion_boundaries_.push_back(boundary);
-  }
-}
-
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::remove_exclusion_boundary_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, Boundary boundary, bool set_negative)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::copyPointCloud(*cloud_ptr, *new_cloud_ptr);
 
-  for (int i = 0; i < exclusion_boundaries_.size(); ++i)
-  {
-    ExclusionBoundary eb = exclusion_boundaries_.at(i);
-    pcl::CropBox<pcl::PointXYZRGB> box_filter;
-    box_filter.setMin(Eigen::Vector4f(eb.min_x, eb.min_y, eb.min_z, 0));
-    box_filter.setMax(Eigen::Vector4f(eb.max_x, eb.max_y, eb.max_z, 0));
-    box_filter.setInputCloud(new_cloud_ptr);
-    box_filter.setNegative(true);
-    box_filter.filter(*new_cloud_ptr);
-  }
+   pcl::CropBox<pcl::PointXYZRGB> box_filter;
+   box_filter.setMin(Eigen::Vector4f(boundary.min_x, boundary.min_y, boundary.min_z, 0));
+   box_filter.setMax(Eigen::Vector4f(boundary.max_x, boundary.max_y, boundary.max_z, 0));
+   box_filter.setInputCloud(new_cloud_ptr);
+   box_filter.setNegative(set_negative);
+   box_filter.filter(*new_cloud_ptr);
+
   return new_cloud_ptr;
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, float min_pr, float max_pr, float min_pg, float max_pg)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr,
+  float min_pr, float max_pr, float min_pg, float max_pg, float min_pa, float max_pa)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::PointIndices::Ptr keep_indices(new pcl::PointIndices);
@@ -207,8 +157,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::Po
 
     float pr = percent_red(p);
     float pg = percent_green(p);
+    float pa = alpha(p);
 
-    if (pr >= min_pr && pr <= max_pr && pg >= min_pg && pg <= max_pg)
+    if (pr >= min_pr && pr <= max_pr && pg >= min_pg && pg <= max_pg && pa >= min_pa && pa <= max_pa)
     {
       keep_indices->indices.push_back(i);
     }
@@ -224,7 +175,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::Po
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
 {
-  std::cout << "points in cloud: " << cloud_ptr->size() << std::endl;
+  if (DEBUG) std::cout << "points in cloud: " << cloud_ptr->size() << std::endl;
   // get groups of clusters
   pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> euclidean_cluster;
   euclidean_cluster.setInputCloud(cloud_ptr);
@@ -234,14 +185,21 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl
   std::vector<pcl::PointIndices> cluster_groups;
   euclidean_cluster.extract(cluster_groups);
 
-  std::cout << "num_clusters: " << cluster_groups.size() << std::endl;
+  if (DEBUG) std::cout << "num_clusters: " << cluster_groups.size() << std::endl;
+
+  // if there are no cluster, throw exception
+  if (cluster_groups.size() == 0)
+  {
+    throw ClusterNotFoundException();
+  }
+
   // find biggest cluster
   pcl::PointIndices::Ptr biggest_cluster_indices;
   int biggest_cluster_size = 0;
   for (int i = 0; i < cluster_groups.size(); ++i)
   {
     int cluster_size = cluster_groups.at(i).indices.size();
-    std::cout << "cluster_size: " << cluster_size << std::endl;
+    if (DEBUG) std::cout << "cluster_size: " << cluster_size << std::endl;
     if (cluster_size > biggest_cluster_size)
     {
       biggest_cluster_size = cluster_size;
@@ -273,86 +231,169 @@ Eigen::Vector3d ReggieLocator::get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::P
   return centroid;
 }
 
+Boundary ReggieLocator::create_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
+{
+  std::cout << "CHECKPOINT 6" << std::endl;
+  Boundary boundary;
+
+  pcl::PointXYZRGB p0 = cloud_ptr->points.at(0);
+  boundary.min_x = p0.x;
+  boundary.min_y = p0.y;
+  boundary.min_z = p0.z;
+  boundary.max_x = p0.x;
+  boundary.max_y = p0.y;
+  boundary.max_z = p0.z;
+
+  for (int i = 0; i < cloud_ptr->size(); ++i)
+  {
+     pcl::PointXYZRGB p = cloud_ptr->points.at(i);
+     if (p.x < boundary.min_x) boundary.min_x = p.x;
+     if (p.y < boundary.min_y) boundary.min_y = p.y;
+     if (p.z < boundary.min_z) boundary.min_z = p.z;
+     if (p.x > boundary.max_x) boundary.max_x = p.x;
+     if (p.y > boundary.max_y) boundary.max_y = p.y;
+     if (p.z > boundary.max_z) boundary.max_z = p.z;
+  }
+
+  boundary.min_x -= EXCLUSION_BOUNDARY_PADDING;
+  boundary.min_y -= EXCLUSION_BOUNDARY_PADDING;
+  boundary.min_z -= EXCLUSION_BOUNDARY_PADDING;
+  boundary.max_x += EXCLUSION_BOUNDARY_PADDING;
+  boundary.max_y += EXCLUSION_BOUNDARY_PADDING;
+  boundary.max_z += EXCLUSION_BOUNDARY_PADDING;
+
+  std::cout << "CHECKPOINT 7" << std::endl;
+  return boundary;
+}
+
 void ReggieLocator::init_map_frame()
 {
-  float padding = 0.01;
-
-  // get yellow cloud patch
-  float yellow_r_avg, yellow_g_avg;
+  float yellow_r_avg, yellow_g_avg, yellow_a_avg, green_r_avg, green_g_avg, green_a_avg, blue_r_avg,
+    blue_g_avg, blue_a_avg;
   nh_.getParam("/marker_color_ranges/yellow/r_avg", yellow_r_avg);
   nh_.getParam("/marker_color_ranges/yellow/g_avg", yellow_g_avg);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr yellow_marker_cloud_ptr = filter_color_range(empty_map_cloud_ptr_,
-    yellow_r_avg - padding,
-    yellow_r_avg + padding,
-    yellow_g_avg - padding,
-    yellow_g_avg + padding
-  );
-  yellow_marker_cloud_ptr = filter_biggest_cluster(yellow_marker_cloud_ptr);
+  nh_.getParam("/marker_color_ranges/yellow/a_avg", yellow_a_avg);
+  nh_.getParam("/marker_color_ranges/green/r_avg", green_r_avg);
+  nh_.getParam("/marker_color_ranges/green/g_avg", green_g_avg);
+  nh_.getParam("/marker_color_ranges/green/a_avg", green_a_avg);
+  nh_.getParam("/marker_color_ranges/blue/r_avg", blue_r_avg);
+  nh_.getParam("/marker_color_ranges/blue/g_avg", blue_g_avg);
+  nh_.getParam("/marker_color_ranges/blue/a_avg", blue_a_avg);
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, yellow_marker_cloud_ptr, green_marker_cloud_ptr, blue_marker_cloud_ptr;
+
+  int attempts_left = 5;
+  while(true) {
+    try {
+      cloud_ptr = get_point_cloud();
+
+      cloud_ptr = segment_plane(cloud_ptr, false, 0.02);
+
+      // get yellow cloud patch
+      yellow_marker_cloud_ptr = filter_color_range(
+        cloud_ptr,
+        yellow_r_avg - COLOR_TOLERANCE,
+        yellow_r_avg + COLOR_TOLERANCE,
+        yellow_g_avg - COLOR_TOLERANCE,
+        yellow_g_avg + COLOR_TOLERANCE,
+        yellow_a_avg - ALPHA_TOLERANCE,
+        yellow_a_avg + ALPHA_TOLERANCE
+      );
+      yellow_marker_cloud_ptr = filter_biggest_cluster(yellow_marker_cloud_ptr);
+      if (yellow_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+
+      // get green cloud patch
+      green_marker_cloud_ptr = filter_color_range(
+        cloud_ptr,
+        green_r_avg - COLOR_TOLERANCE,
+        green_r_avg + COLOR_TOLERANCE,
+        green_g_avg - COLOR_TOLERANCE,
+        green_g_avg + COLOR_TOLERANCE,
+        green_a_avg - ALPHA_TOLERANCE,
+        green_a_avg + ALPHA_TOLERANCE
+      );
+      green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
+      if (green_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+
+      // get blue cloud patch
+      blue_marker_cloud_ptr = filter_color_range(
+        cloud_ptr,
+        blue_r_avg - COLOR_TOLERANCE,
+        blue_r_avg + COLOR_TOLERANCE,
+        blue_g_avg - COLOR_TOLERANCE,
+        blue_g_avg + COLOR_TOLERANCE,
+        blue_a_avg - ALPHA_TOLERANCE,
+        blue_a_avg + ALPHA_TOLERANCE
+      );
+      blue_marker_cloud_ptr = filter_biggest_cluster(blue_marker_cloud_ptr);
+      if (blue_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+
+      // exit loop
+      break;
+    } catch (ClusterNotFoundException& e) {
+      attempts_left -= 1;
+      std::cout << "WARNING: Clustering corner markers failed (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      if (attempts_left == 0) {
+        std::cout << "ERROR: Could not determine position of corner markers." << std::endl;
+        exit(1);
+      }
+    } catch (EmptyCloudException& e) {
+      attempts_left -= 1;
+      std::cout << "WARNING: Cloud empty after filtering. (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      if (attempts_left == 0) {
+        std::cout << "ERROR: Could not determine position of corner markers." << std::endl;
+        exit(1);
+      }
+    }
+  }
+  std::cout << "CHECKPOINT 1" << std::endl;
+  // add marker boundaries to list
+  marker_boundaries_.push_back(create_boundary(yellow_marker_cloud_ptr));
+  marker_boundaries_.push_back(create_boundary(green_marker_cloud_ptr));
+  marker_boundaries_.push_back(create_boundary(blue_marker_cloud_ptr));
+  std::cout << "CHECKPOINT 2" << std::endl;
+  // calculate marker centroids
+  Eigen::Vector3d yellow_marker_centroid = get_centroid(yellow_marker_cloud_ptr);
+  Eigen::Vector3d green_marker_centroid = get_centroid(green_marker_cloud_ptr);
+  Eigen::Vector3d blue_marker_centroid = get_centroid(blue_marker_cloud_ptr);
+
+  std::cout << "CHECKPOINT 3" << std::endl;
+  // publish filtered marker clouds
   sensor_msgs::PointCloud2 yellow_cloud_msg;
   pcl::toROSMsg(*yellow_marker_cloud_ptr, yellow_cloud_msg);
   yellow_cloud_msg.header.frame_id = CAMERA_FRAME;
-  yellow_marker_pub_.publish(yellow_cloud_msg);
-  Eigen::Vector3d yellow_marker_centroid = get_centroid(yellow_marker_cloud_ptr);
+  yellow_map_marker_pub_.publish(yellow_cloud_msg);
 
-  // get green cloud patch
-  float green_r_avg, green_g_avg;
-  nh_.getParam("/marker_color_ranges/green/r_avg", green_r_avg);
-  nh_.getParam("/marker_color_ranges/green/g_avg", green_g_avg);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr green_marker_cloud_ptr = filter_color_range(empty_map_cloud_ptr_,
-    green_r_avg - padding,
-    green_r_avg + padding,
-    green_g_avg - padding,
-    green_g_avg + padding
-  );
-  green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
   sensor_msgs::PointCloud2 green_cloud_msg;
   pcl::toROSMsg(*green_marker_cloud_ptr, green_cloud_msg);
   green_cloud_msg.header.frame_id = CAMERA_FRAME;
-  green_marker_pub_.publish(green_cloud_msg);
-  Eigen::Vector3d green_marker_centroid = get_centroid(green_marker_cloud_ptr);
+  green_map_marker_pub_.publish(green_cloud_msg);
 
-  // get pink cloud patch
-  /*
-  float pink_r_avg, pink_g_avg;
-  nh_.getParam("/marker_color_ranges/pink/r_avg", pink_r_avg);
-  nh_.getParam("/marker_color_ranges/pink/g_avg", pink_g_avg);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr pink_marker_cloud_ptr = filter_color_range(empty_map_cloud_ptr_,
-    pink_r_avg - padding,
-    pink_r_avg + padding,
-    pink_g_avg - padding,
-    pink_g_avg + padding
-  );
-  pink_marker_cloud_ptr = filter_biggest_cluster(pink_marker_cloud_ptr);
-  sensor_msgs::PointCloud2 pink_cloud_msg;
-  pcl::toROSMsg(*pink_marker_cloud_ptr, pink_cloud_msg);
-  pink_cloud_msg.header.frame_id = CAMERA_FRAME;
-  pink_marker_pub_.publish(pink_cloud_msg);
-  Eigen::Vector3d pink_marker_centroid = get_centroid(pink_marker_cloud_ptr);
-  */
+  sensor_msgs::PointCloud2 blue_cloud_msg;
+  pcl::toROSMsg(*blue_marker_cloud_ptr, blue_cloud_msg);
+  blue_cloud_msg.header.frame_id = CAMERA_FRAME;
+  blue_map_marker_pub_.publish(blue_cloud_msg);
 
+  std::cout << "CHECKPOINT 4" << std::endl;
   Eigen::Vector3d y_vector = (yellow_marker_centroid - green_marker_centroid);
   y_vector = -1 * y_vector / y_vector.norm();
-  std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
 
-  Eigen::Vector3d z_vector = get_plane_normal(empty_map_cloud_ptr_);
+  Eigen::Vector3d z_vector = plane_normal_;
   z_vector = -1 * z_vector / z_vector.norm();
-  std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
 
   Eigen::Vector3d x_vector = z_vector.cross(y_vector);
   x_vector = -1 * x_vector / x_vector.norm();
-  std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
+
+  if (DEBUG) {
+    std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
+    std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
+    std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
+  }
 
   Eigen::Matrix3d rotation;
-  rotation(0,0) = x_vector[0];
-  rotation(1,0) = x_vector[1];
-  rotation(2,0) = x_vector[2];
-  rotation(0,1) = y_vector[0];
-  rotation(1,1) = y_vector[1];
-  rotation(2,1) = y_vector[2];
-  rotation(0,2) = z_vector[0];
-  rotation(1,2) = z_vector[1];
-  rotation(2,2) = z_vector[2];
-  //rotation.inverse();
+  rotation(0,0) = x_vector[0]; rotation(1,0) = x_vector[1]; rotation(2,0) = x_vector[2];
+  rotation(0,1) = y_vector[0]; rotation(1,1) = y_vector[1]; rotation(2,1) = y_vector[2];
+  rotation(0,2) = z_vector[0]; rotation(1,2) = z_vector[1]; rotation(2,2) = z_vector[2];
 
   camera_to_map_tf_ = Eigen::Isometry3d::Identity();
   camera_to_map_tf_.linear() = rotation;
@@ -370,35 +411,144 @@ void ReggieLocator::init_map_frame()
   green_tf_msg.child_frame_id = "green_marker";
   static_broadcaster_.sendTransform(green_tf_msg);
 
-  /*
-  Eigen::Isometry3d pink_tf = Eigen::Isometry3d::Identity();
-  pink_tf.linear() = rotation;
-  pink_tf.translation() = pink_marker_centroid;
-  geometry_msgs::TransformStamped pink_tf_msg = tf2::eigenToTransform(pink_tf);
-  pink_tf_msg.header.frame_id = CAMERA_FRAME;
-  pink_tf_msg.child_frame_id = "pink_marker";
-  static_broadcaster_.sendTransform(pink_tf_msg);
-  */
+  Eigen::Isometry3d blue_tf = Eigen::Isometry3d::Identity();
+  blue_tf.linear() = rotation;
+  blue_tf.translation() = blue_marker_centroid;
+  geometry_msgs::TransformStamped blue_tf_msg = tf2::eigenToTransform(blue_tf);
+  blue_tf_msg.header.frame_id = CAMERA_FRAME;
+  blue_tf_msg.child_frame_id = "blue_marker";
+  static_broadcaster_.sendTransform(blue_tf_msg);
 
+  //map_x_length_ = 0.635485
+  map_x_length_ = (yellow_marker_centroid - blue_marker_centroid).norm();
   map_y_length_ = (yellow_marker_centroid - green_marker_centroid).norm();
-  std::cout << "map_x_length_ = " << map_x_length_ << std::endl;
-  map_x_length_ = 0.635485
-  //map_x_length_ = (yellow_marker_centroid - pink_marker_centroid).norm();
-  std::cout << "map_y_length_ = " << map_y_length_ << std::endl;
 }
 
-void ReggieLocator::get_location()
+void ReggieLocator::update_robot_location()
 {
-  // remove points inside exclusion boundaries
-  //for (int i = 0; i < exclusion_boundaries_.size(); ++i)
-  //{
-  //}
-  // remove points from plane
-  // cluster (hopefully there's only one)
+  float blue_r_avg, blue_g_avg, blue_a_avg, green_r_avg, green_g_avg, green_a_avg;
+  nh_.getParam("/marker_color_ranges/blue/r_avg", blue_r_avg);
+  nh_.getParam("/marker_color_ranges/blue/g_avg", blue_g_avg);
+  nh_.getParam("/marker_color_ranges/blue/a_avg", blue_a_avg);
+  nh_.getParam("/marker_color_ranges/green/r_avg", green_r_avg);
+  nh_.getParam("/marker_color_ranges/green/g_avg", green_g_avg);
+  nh_.getParam("/marker_color_ranges/green/a_avg", green_a_avg);
 
-  // find points for each sticker on 
-  // calculate pose
-  return;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, blue_marker_cloud_ptr, green_marker_cloud_ptr;
+  // attempt to get a cloud with valid position markers
+  int attempts_left = 5;
+  while (true) {
+    try {
+      cloud_ptr = get_point_cloud();
+
+      // remove map markers
+      for (int i = 0; i < marker_boundaries_.size(); ++i) {
+        cloud_ptr = segment_boundary(cloud_ptr, marker_boundaries_.at(i), true);
+      }
+
+      if (DEBUG) {
+        sensor_msgs::PointCloud2 no_map_markers_cloud_msg;
+        pcl::toROSMsg(*cloud_ptr, no_map_markers_cloud_msg);
+        no_map_markers_cloud_msg.header.frame_id = CAMERA_FRAME;
+        no_map_markers_pub_.publish(no_map_markers_cloud_msg);
+      }
+
+      // get blue robot marker cloud
+      blue_marker_cloud_ptr = filter_color_range(cloud_ptr,
+        blue_r_avg - COLOR_TOLERANCE,
+        blue_r_avg + COLOR_TOLERANCE,
+        blue_g_avg - COLOR_TOLERANCE,
+        blue_g_avg + COLOR_TOLERANCE,
+        blue_a_avg - ALPHA_TOLERANCE,
+        blue_a_avg + ALPHA_TOLERANCE
+      );
+      blue_marker_cloud_ptr = filter_biggest_cluster(blue_marker_cloud_ptr);
+      if (blue_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+
+      // get green robot marker cloud
+      green_marker_cloud_ptr = filter_color_range(
+        cloud_ptr,
+        green_r_avg - COLOR_TOLERANCE,
+        green_r_avg + COLOR_TOLERANCE,
+        green_g_avg - COLOR_TOLERANCE,
+        green_g_avg + COLOR_TOLERANCE,
+        green_a_avg - ALPHA_TOLERANCE,
+        green_a_avg + ALPHA_TOLERANCE
+      );
+      green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
+      if (green_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+
+      break;
+    } catch (ClusterNotFoundException& e) {
+      attempts_left -= 1;
+      std::cout << "Clustering robot position markers failed (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      if (attempts_left == 0)
+      {
+        std::cout << "WARNING: Could not find robot position markers." << std::endl;
+        return;
+      }
+    } catch (EmptyCloudException& e) {
+      attempts_left -= 1;
+      std::cout << "Cloud empty after filtering. (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      if (attempts_left == 0) {
+        std::cout << "WARNING: Could not determine position of robot." << std::endl;
+        return;
+      }
+    }
+  }
+
+  sensor_msgs::PointCloud2 blue_cloud_msg;
+  pcl::toROSMsg(*blue_marker_cloud_ptr, blue_cloud_msg);
+  blue_cloud_msg.header.frame_id = CAMERA_FRAME;
+  blue_robot_marker_pub_.publish(blue_cloud_msg);
+
+  sensor_msgs::PointCloud2 green_cloud_msg;
+  pcl::toROSMsg(*green_marker_cloud_ptr, green_cloud_msg);
+  green_cloud_msg.header.frame_id = CAMERA_FRAME;
+  green_robot_marker_pub_.publish(green_cloud_msg);
+
+  Eigen::Vector3d blue_marker_centroid = get_centroid(blue_marker_cloud_ptr);
+  Eigen::Vector3d green_marker_centroid = get_centroid(green_marker_cloud_ptr);
+
+  Eigen::Vector3d position = (green_marker_centroid + blue_marker_centroid) / 2;
+
+  Eigen::Vector3d y_vector = (green_marker_centroid - blue_marker_centroid);
+  y_vector = y_vector / y_vector.norm();
+  Eigen::Vector3d z_vector = plane_normal_;
+  z_vector = -1 * z_vector / z_vector.norm();
+  Eigen::Vector3d x_vector = y_vector.cross(z_vector);
+  x_vector = x_vector / x_vector.norm();
+
+  if (DEBUG) {
+    std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
+    std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
+    std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
+  }
+
+  Eigen::Matrix3d rotation;
+  rotation(0,0) = x_vector[0];
+  rotation(1,0) = x_vector[1];
+  rotation(2,0) = x_vector[2];
+  rotation(0,1) = y_vector[0];
+  rotation(1,1) = y_vector[1];
+  rotation(2,1) = y_vector[2];
+  rotation(0,2) = z_vector[0];
+  rotation(1,2) = z_vector[1];
+  rotation(2,2) = z_vector[2];
+
+  Eigen::Isometry3d camera_to_robot_tf = Eigen::Isometry3d::Identity();
+  camera_to_robot_tf.linear() = rotation;
+  camera_to_robot_tf.translation() = position;
+
+  Eigen::Isometry3d map_to_robot_tf = camera_to_map_tf_.inverse()  * camera_to_robot_tf;
+
+  // fix robot tf 6cm off of ground
+  map_to_robot_tf.translation().z() = 0.06;
+
+  geometry_msgs::TransformStamped transform_msg = tf2::eigenToTransform(map_to_robot_tf);
+  transform_msg.header.frame_id = MAP_FRAME;
+  transform_msg.child_frame_id = ROBOT_FRAME;
+  dynamic_broadcaster_.sendTransform(transform_msg);
 }
 
 int main(int argc, char **argv)

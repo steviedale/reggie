@@ -19,6 +19,11 @@ float percent_green(pcl::PointXYZRGB p)
   return (float)p.g / ((float)p.r + (float)p.g + (float)p.b);
 }
 
+float alpha(pcl::PointXYZRGB p)
+{
+  return ((float)p.r + (float)p.g + (float)p.b) / (255.0 * 3.0);
+}
+
 int main(int argc, char **argv)
 {
   std::string CAMERA_TOPIC = "/camera/depth_registered/points";
@@ -62,14 +67,16 @@ int main(int argc, char **argv)
   cloud_msg.header.frame_id = FRAME_ID;
   pub.publish(cloud_msg);
 
-  float r_min, r_max, g_min, g_max;
-  float pr_total, pg_total;
-  pr_total = pg_total = 0.0;
+  float r_min, r_max, g_min, g_max, a_min, a_max;
+  float pr_total, pg_total, pa_total;
+  pr_total = pg_total = pa_total = 0.0;
 
   r_min = percent_red(cloud_ptr->points.at(0));
   r_max = percent_red(cloud_ptr->points.at(0));
   g_min = percent_green(cloud_ptr->points.at(0));
   g_max = percent_green(cloud_ptr->points.at(0));
+  a_min = alpha(cloud_ptr->points.at(0));
+  a_max = alpha(cloud_ptr->points.at(0));
 
   for(int i = 0; i < cloud_ptr->size(); ++i)
   {
@@ -77,20 +84,26 @@ int main(int argc, char **argv)
 
     float pr = percent_red(p);
     float pg = percent_green(p);
+    float pa = alpha(p);
 
     pr_total += pr;
     pg_total += pg;
+    pa_total += pa;
 
     if (pr < r_min) r_min = pr;
     if (pr > r_max) r_max = pr;
     if (pg < g_min) g_min = pg;
     if (pg > g_max) g_max = pg;
+    if (pa < a_min) a_min = pa;
+    if (pa > a_max) a_max = pa;
   }
   std::cout << "R: [ " << r_min << ",  " << r_max << " ]" << std::endl;
   std::cout << "G: [ " << g_min << ",  " << g_max << " ]" << std::endl;
+  std::cout << "A: [ " << a_min << ",  " << a_max << " ]" << std::endl;
 
   std::cout << "Avg(pr): " << pr_total / cloud_ptr->size() << std::endl;
   std::cout << "Avg(pg): " << pg_total / cloud_ptr->size() << std::endl;
+  std::cout << "Avg(pa): " << pa_total / cloud_ptr->size() << std::endl;
 
   ros::spin();
 }

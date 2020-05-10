@@ -1,6 +1,22 @@
 <launch>
+<arg name="sim" default="true" />
+
+<group if="$(arg sim)">
+  <node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/kinect.bag" />
+</group>
+
+<group unless="$(arg sim)">
+  <include file="$(find reggie_kinect)/launch/reggie_kinect.launch"/>
+  <node name="joy" pkg="joy" type="joy_node" />
+  <node name="joy_to_reggie" pkg="joy_to_reggie" type="joy_to_reggie_node.py" />
+</group>
+
 <param name="robot_description" textfile="$(find reggie_support)/urdf/reggie.urdf" />
 <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
 <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
-<node name="rviz" pkg="rviz" type="rviz" args="-d $(find reggie_support)/rviz/reggie_kinect.rviz" />
+
+<node name="rviz" pkg="rviz" type="rviz" args="-d $(find reggie_support)/rviz/reggie.rviz" />
+
+<include file="$(find reggie_locator)/launch/reggie_locator.launch" />
+
 </launch>

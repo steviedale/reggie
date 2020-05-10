@@ -6,7 +6,7 @@
 
 <node name="crop_cloud_node" pkg="reggie_locator" type="crop_cloud" output="screen" >
 
-  <!-- DEFAULT
+  <!-- DEFAULT MAP
   <param name="x_min" type="double" value="-0.726849" />
   <param name="x_max" type="double" value="0.706064" />
   <param name="y_min" type="double" value="-0.543809" />
@@ -15,57 +15,34 @@
   <param name="z_max" type="double" value="1.331" />
   -->
 
-  <!-- BLUE
-  <param name="x_min" type="double" value="0.385" />
-  <param name="x_max" type="double" value="0.395" />
-  <param name="y_min" type="double" value="0.165" />
-  <param name="y_max" type="double" value="0.18" />
-  <param name="z_min" type="double" value="0.9" />
-  <param name="z_max" type="double" value="1.34" />
-  -->
-
-  <!-- RED
-  <param name="x_min" type="double" value="-0.405" />
-  <param name="x_max" type="double" value="-0.395" />
-  <param name="y_min" type="double" value="0.135" />
-  <param name="y_max" type="double" value="0.15" />
-  <param name="z_min" type="double" value="0.9" />
-  <param name="z_max" type="double" value="1.34" />
-  -->
-
-  <!-- ORANGE
-  <param name="x_min" type="double" value="0.38" />
-  <param name="x_max" type="double" value="0.403" />
-  <param name="y_min" type="double" value="0.145" />
-  <param name="y_max" type="double" value="0.167" />
-  <param name="z_min" type="double" value="0.9" />
-  <param name="z_max" type="double" value="1.34" />
-  -->
-
-  <!-- YELLOW
-  <param name="x_min" type="double" value="0.38" />
-  <param name="x_max" type="double" value="0.4" />
+  <!-- YELLOW MAP
+  <param name="x_min" type="double" value="0.387" />
+  <param name="x_max" type="double" value="0.405" />
   <param name="y_min" type="double" value="0.145" />
   <param name="y_max" type="double" value="0.16" />
   <param name="z_min" type="double" value="0.9" />
   <param name="z_max" type="double" value="1.34" />
   -->
 
-  <!-- GREEN
-  <param name="x_min" type="double" value="-0.405" />
-  <param name="x_max" type="double" value="-0.395" />
+  <!-- GREEN MAP
+  <param name="x_min" type="double" value="-0.4" />
+  <param name="x_max" type="double" value="-0.38" />
   <param name="y_min" type="double" value="0.135" />
   <param name="y_max" type="double" value="0.15" />
   <param name="z_min" type="double" value="0.9" />
   <param name="z_max" type="double" value="1.34" />
   -->
 
+  <!-- BLUE MAP
+  -->
   <param name="x_min" type="double" value="0.399" />
   <param name="x_max" type="double" value="0.42" />
-  <param name="y_min" type="double" value="-0.505" />
-  <param name="y_max" type="double" value="-0.485" />
+  <param name="y_min" type="double" value="-0.5" />
+  <param name="y_max" type="double" value="-0.48" />
   <param name="z_min" type="double" value="1.014" />
   <param name="z_max" type="double" value="1.331" />
+  <!--
+  -->
 
 </node>
 

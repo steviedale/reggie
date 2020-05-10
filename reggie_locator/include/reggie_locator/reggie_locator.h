@@ -6,12 +6,20 @@
 #include <Eigen/Dense>
 #include <string>
 #include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <exception>
+
 
 std::string CAMERA_FRAME = "camera_rgb_optical_frame";
 std::string MAP_FRAME = "map_frame";
-float EXCLUSION_BOUNDARY_PADDING = 0.02;
+std::string ROBOT_FRAME = "base_link";
+float EXCLUSION_BOUNDARY_PADDING = 0.05;
+float MARKER_BOUNDARY_PADDING = 0.02;
+float COLOR_TOLERANCE = 0.07;
+float ALPHA_TOLERANCE = 0.2;
 
-struct ExclusionBoundary {
+
+struct Boundary {
   float min_x;
   float max_x;
   float min_y;
@@ -20,48 +28,72 @@ struct ExclusionBoundary {
   float max_z;
 };
 
+struct ClusterNotFoundException : public std::exception
+{
+	const char * what () const throw ()
+    {
+    	return "Could not find cluster.";
+    }
+};
+
+struct EmptyCloudException : public std::exception
+{
+	const char * what () const throw ()
+    {
+    	return "Cloud has size == 0.";
+    }
+};
+
 class ReggieLocator
 {
 public:
   ReggieLocator();
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getPointCloud();
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr get_point_cloud();
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr remove_nan_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr segment_plane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, bool set_negative=false);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr segment_plane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, bool set_negative=false, float distance_thresh=0.05);
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr remove_exclusion_boundary_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr segment_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, Boundary boundary, bool set_negative=false);
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr,
-    float min_pr, float max_pr, float min_pg, float max_pg);
+    float min_pr, float max_pr, float min_pg, float max_pg, float min_pa, float max_pa);
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr filter_biggest_cluster(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
-  Eigen::Vector3d get_plane_normal(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
+  void init_plane_normal();
 
   Eigen::Vector3d get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
-  void init_empty_map_cloud_ptr();
-
-  void init_exclusion_boundaries();
+  Boundary create_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
   void init_map_frame();
 
-  void get_location();
+  void update_robot_location();
 
-  void camera_callback(sensor_msgs::PointCloud2 msg);
-
+  // Variables //
   ros::NodeHandle nh_;
+
   ros::Publisher cleaned_map_pub_;
   ros::Publisher raw_map_pub_;
-  ros::Publisher yellow_marker_pub_;
-  ros::Publisher green_marker_pub_;
-  ros::Publisher pink_marker_pub_;
+  ros::Publisher yellow_map_marker_pub_;
+  ros::Publisher green_map_marker_pub_;
+  ros::Publisher blue_map_marker_pub_;
+  ros::Publisher blue_robot_marker_pub_;
+  ros::Publisher green_robot_marker_pub_;
+  ros::Publisher no_map_markers_pub_;
+
   tf2_ros::StaticTransformBroadcaster static_broadcaster_;
+  tf2_ros::TransformBroadcaster dynamic_broadcaster_;
+
   std::string camera_topic_;
-  std::vector<ExclusionBoundary> exclusion_boundaries_;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr empty_map_cloud_ptr_;
+
   Eigen::Isometry3d camera_to_map_tf_;
+
+  Eigen::Vector3d plane_normal_;
+
+  std::vector<Boundary> marker_boundaries_;
+
   float map_x_length_, map_y_length_;
 };

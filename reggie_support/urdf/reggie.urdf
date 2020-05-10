@@ -20,7 +20,7 @@
 
   <link name="chassis">
     <visual>
-      <origin rpy="0 0 0" xyz="0.13 -0.0221 0"/>
+      <origin rpy="0 0 0" xyz="0.13 -0.0221 -0.043"/>
       <geometry>
         <mesh filename="package://reggie_support/meshes/chassis.stl" />
       </geometry>
@@ -47,7 +47,7 @@
   <joint name="chassis_to_right_wheel" type="fixed">
     <parent link="chassis" />
     <child link="right_wheel" />
-    <origin rpy="1.5707 0 0" xyz="0 -0.0755 0.0257" />
+    <origin rpy="1.5707 0 0" xyz="0 -0.0755 -0.017" />
   </joint>
 
   <link name="left_wheel">
@@ -63,7 +63,7 @@
   <joint name="chassis_to_left_wheel" type="fixed">
     <parent link="chassis" />
     <child link="left_wheel" />
-    <origin rpy="1.5707 0 0" xyz="0 0.0755 0.0257" />
+    <origin rpy="1.5707 0 0" xyz="0 0.0755 -0.017" />
   </joint>
 
 </robot>
