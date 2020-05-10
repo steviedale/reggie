@@ -51,12 +51,21 @@
   <param name="z_max" type="double" value="1.34" />
   -->
 
+  <!-- GREEN
   <param name="x_min" type="double" value="-0.405" />
   <param name="x_max" type="double" value="-0.395" />
   <param name="y_min" type="double" value="0.135" />
   <param name="y_max" type="double" value="0.15" />
   <param name="z_min" type="double" value="0.9" />
   <param name="z_max" type="double" value="1.34" />
+  -->
+
+  <param name="x_min" type="double" value="0.399" />
+  <param name="x_max" type="double" value="0.42" />
+  <param name="y_min" type="double" value="-0.505" />
+  <param name="y_max" type="double" value="-0.485" />
+  <param name="z_min" type="double" value="1.014" />
+  <param name="z_max" type="double" value="1.331" />
 
 </node>
 

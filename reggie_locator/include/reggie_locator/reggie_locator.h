@@ -53,13 +53,15 @@ public:
   void camera_callback(sensor_msgs::PointCloud2 msg);
 
   ros::NodeHandle nh_;
-  ros::Publisher cleaned_map_pub;
-  ros::Publisher raw_map_pub;
-  ros::Publisher yellow_marker_pub;
-  ros::Publisher green_marker_pub;
+  ros::Publisher cleaned_map_pub_;
+  ros::Publisher raw_map_pub_;
+  ros::Publisher yellow_marker_pub_;
+  ros::Publisher green_marker_pub_;
+  ros::Publisher pink_marker_pub_;
   tf2_ros::StaticTransformBroadcaster static_broadcaster_;
   std::string camera_topic_;
   std::vector<ExclusionBoundary> exclusion_boundaries_;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr empty_map_cloud_ptr_;
   Eigen::Isometry3d camera_to_map_tf_;
+  float map_x_length_, map_y_length_;
 };

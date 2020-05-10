@@ -31,10 +31,11 @@ float percent_green(pcl::PointXYZRGB p)
 ReggieLocator::ReggieLocator()
 : nh_()
 , camera_topic_("/camera/depth_registered/points")
-, cleaned_map_pub(nh_.advertise<sensor_msgs::PointCloud2>("cleaned_map", 1))
-, raw_map_pub(nh_.advertise<sensor_msgs::PointCloud2>("raw_map", 1))
-, green_marker_pub(nh_.advertise<sensor_msgs::PointCloud2>("green_marker", 1))
-, yellow_marker_pub(nh_.advertise<sensor_msgs::PointCloud2>("yellow_marker", 1))
+, cleaned_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("cleaned_map", 1))
+, raw_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("raw_map", 1))
+, green_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_marker", 1))
+, yellow_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("yellow_marker", 1))
+, pink_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("pink_marker", 1))
 {
   init_empty_map_cloud_ptr();
   init_exclusion_boundaries();
@@ -45,7 +46,7 @@ ReggieLocator::ReggieLocator()
   sensor_msgs::PointCloud2 cloud_msg;
   pcl::toROSMsg(*cleaned_map_cloud_ptr, cloud_msg);
   cloud_msg.header.frame_id = CAMERA_FRAME;
-  cleaned_map_pub.publish(cloud_msg);
+  cleaned_map_pub_.publish(cloud_msg);
 
   ros::spin();
 }
@@ -227,9 +228,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl
   // get groups of clusters
   pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> euclidean_cluster;
   euclidean_cluster.setInputCloud(cloud_ptr);
-  euclidean_cluster.setClusterTolerance(0.1);
-  euclidean_cluster.setMinClusterSize(10);
-  euclidean_cluster.setMaxClusterSize(10000);
+  euclidean_cluster.setClusterTolerance(0.005);
+  euclidean_cluster.setMinClusterSize(6);
+  euclidean_cluster.setMaxClusterSize(1000);
   std::vector<pcl::PointIndices> cluster_groups;
   euclidean_cluster.extract(cluster_groups);
 
@@ -256,7 +257,6 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl
   extract_indices.setNegative(false);
   extract_indices.filter(*new_cloud_ptr);
 
-  std::cout << "end check 5" << std::endl;
   return new_cloud_ptr;
 }
 
@@ -275,16 +275,9 @@ Eigen::Vector3d ReggieLocator::get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::P
 
 void ReggieLocator::init_map_frame()
 {
-/*
-  float yellow_r_min, yellow_r_max, yellow_g_min, yellow_g_max;
-  nh_.getParam("/marker_color_ranges/yellow/r_min", yellow_r_min);
-  nh_.getParam("/marker_color_ranges/yellow/r_max", yellow_r_max);
-  nh_.getParam("/marker_color_ranges/yellow/g_min", yellow_g_min);
-  nh_.getParam("/marker_color_ranges/yellow/g_max", yellow_g_max);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr yellow_marker_cloud_ptr = filter_color_range(empty_map_cloud_ptr_, yellow_r_min,
-    yellow_r_max, yellow_g_min, yellow_g_max);
-*/
   float padding = 0.01;
+
+  // get yellow cloud patch
   float yellow_r_avg, yellow_g_avg;
   nh_.getParam("/marker_color_ranges/yellow/r_avg", yellow_r_avg);
   nh_.getParam("/marker_color_ranges/yellow/g_avg", yellow_g_avg);
@@ -295,23 +288,13 @@ void ReggieLocator::init_map_frame()
     yellow_g_avg + padding
   );
   yellow_marker_cloud_ptr = filter_biggest_cluster(yellow_marker_cloud_ptr);
-
   sensor_msgs::PointCloud2 yellow_cloud_msg;
   pcl::toROSMsg(*yellow_marker_cloud_ptr, yellow_cloud_msg);
   yellow_cloud_msg.header.frame_id = CAMERA_FRAME;
-  yellow_marker_pub.publish(yellow_cloud_msg);
-
+  yellow_marker_pub_.publish(yellow_cloud_msg);
   Eigen::Vector3d yellow_marker_centroid = get_centroid(yellow_marker_cloud_ptr);
 
-  /*
-  float green_r_min, green_r_max, green_g_min, green_g_max;
-  nh_.getParam("/marker_color_ranges/green/r_min", green_r_min);
-  nh_.getParam("/marker_color_ranges/green/r_max", green_r_max);
-  nh_.getParam("/marker_color_ranges/green/g_min", green_g_min);
-  nh_.getParam("/marker_color_ranges/green/g_max", green_g_max);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr green_marker_cloud_ptr = filter_color_range(empty_map_cloud_ptr_, green_r_min,
-    green_r_max, green_g_min, green_g_max);
-  */
+  // get green cloud patch
   float green_r_avg, green_g_avg;
   nh_.getParam("/marker_color_ranges/green/r_avg", green_r_avg);
   nh_.getParam("/marker_color_ranges/green/g_avg", green_g_avg);
@@ -322,36 +305,54 @@ void ReggieLocator::init_map_frame()
     green_g_avg + padding
   );
   green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
-
   sensor_msgs::PointCloud2 green_cloud_msg;
   pcl::toROSMsg(*green_marker_cloud_ptr, green_cloud_msg);
   green_cloud_msg.header.frame_id = CAMERA_FRAME;
-  green_marker_pub.publish(green_cloud_msg);
-
+  green_marker_pub_.publish(green_cloud_msg);
   Eigen::Vector3d green_marker_centroid = get_centroid(green_marker_cloud_ptr);
 
-  Eigen::Vector3d x_vector = (yellow_marker_centroid - green_marker_centroid);
-  x_vector = x_vector / x_vector.norm();
-//  std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
+  // get pink cloud patch
+  /*
+  float pink_r_avg, pink_g_avg;
+  nh_.getParam("/marker_color_ranges/pink/r_avg", pink_r_avg);
+  nh_.getParam("/marker_color_ranges/pink/g_avg", pink_g_avg);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr pink_marker_cloud_ptr = filter_color_range(empty_map_cloud_ptr_,
+    pink_r_avg - padding,
+    pink_r_avg + padding,
+    pink_g_avg - padding,
+    pink_g_avg + padding
+  );
+  pink_marker_cloud_ptr = filter_biggest_cluster(pink_marker_cloud_ptr);
+  sensor_msgs::PointCloud2 pink_cloud_msg;
+  pcl::toROSMsg(*pink_marker_cloud_ptr, pink_cloud_msg);
+  pink_cloud_msg.header.frame_id = CAMERA_FRAME;
+  pink_marker_pub_.publish(pink_cloud_msg);
+  Eigen::Vector3d pink_marker_centroid = get_centroid(pink_marker_cloud_ptr);
+  */
+
+  Eigen::Vector3d y_vector = (yellow_marker_centroid - green_marker_centroid);
+  y_vector = -1 * y_vector / y_vector.norm();
+  std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
 
   Eigen::Vector3d z_vector = get_plane_normal(empty_map_cloud_ptr_);
   z_vector = -1 * z_vector / z_vector.norm();
-//  std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
+  std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
 
-  Eigen::Vector3d y_vector = z_vector.cross(x_vector);
-  y_vector = y_vector / y_vector.norm();
-//  std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
+  Eigen::Vector3d x_vector = z_vector.cross(y_vector);
+  x_vector = -1 * x_vector / x_vector.norm();
+  std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
 
   Eigen::Matrix3d rotation;
-  rotation(0,0) = z_vector[0];
-  rotation(1,0) = z_vector[1];
-  rotation(2,0) = z_vector[2];
+  rotation(0,0) = x_vector[0];
+  rotation(1,0) = x_vector[1];
+  rotation(2,0) = x_vector[2];
   rotation(0,1) = y_vector[0];
   rotation(1,1) = y_vector[1];
   rotation(2,1) = y_vector[2];
-  rotation(0,2) = x_vector[0];
-  rotation(1,2) = x_vector[1];
-  rotation(2,2) = x_vector[2];
+  rotation(0,2) = z_vector[0];
+  rotation(1,2) = z_vector[1];
+  rotation(2,2) = z_vector[2];
+  //rotation.inverse();
 
   camera_to_map_tf_ = Eigen::Isometry3d::Identity();
   camera_to_map_tf_.linear() = rotation;
@@ -361,15 +362,29 @@ void ReggieLocator::init_map_frame()
   transform_msg.child_frame_id = MAP_FRAME;
   static_broadcaster_.sendTransform(transform_msg);
 
-/*
   Eigen::Isometry3d green_tf = Eigen::Isometry3d::Identity();
-  green_tf.linear() = rotation();
+  green_tf.linear() = rotation;
   green_tf.translation() = green_marker_centroid;
   geometry_msgs::TransformStamped green_tf_msg = tf2::eigenToTransform(green_tf);
   green_tf_msg.header.frame_id = CAMERA_FRAME;
   green_tf_msg.child_frame_id = "green_marker";
   static_broadcaster_.sendTransform(green_tf_msg);
-*/
+
+  /*
+  Eigen::Isometry3d pink_tf = Eigen::Isometry3d::Identity();
+  pink_tf.linear() = rotation;
+  pink_tf.translation() = pink_marker_centroid;
+  geometry_msgs::TransformStamped pink_tf_msg = tf2::eigenToTransform(pink_tf);
+  pink_tf_msg.header.frame_id = CAMERA_FRAME;
+  pink_tf_msg.child_frame_id = "pink_marker";
+  static_broadcaster_.sendTransform(pink_tf_msg);
+  */
+
+  map_y_length_ = (yellow_marker_centroid - green_marker_centroid).norm();
+  std::cout << "map_x_length_ = " << map_x_length_ << std::endl;
+  map_x_length_ = 0.635485
+  //map_x_length_ = (yellow_marker_centroid - pink_marker_centroid).norm();
+  std::cout << "map_y_length_ = " << map_y_length_ << std::endl;
 }
 
 void ReggieLocator::get_location()

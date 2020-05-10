@@ -43,9 +43,7 @@ int main(int argc, char **argv)
   std::cout << "min z: " << z_min << std::endl;
   std::cout << "max z: " << z_max << std::endl;
 
-  std::cout << "press ENTER";
-  std::string input;
-  std::getline(std::cin, input);
+  ros::Duration(1.0).sleep();
 
   sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(CAMERA_TOPIC, nh);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -87,8 +85,6 @@ int main(int argc, char **argv)
     if (pr > r_max) r_max = pr;
     if (pg < g_min) g_min = pg;
     if (pg > g_max) g_max = pg;
-
-    std::cout << pr << ", " << pg << std::endl;
   }
   std::cout << "R: [ " << r_min << ",  " << r_max << " ]" << std::endl;
   std::cout << "G: [ " << g_min << ",  " << g_max << " ]" << std::endl;
