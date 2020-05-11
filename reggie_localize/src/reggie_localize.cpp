@@ -385,8 +385,7 @@ void ReggieLocalize::init_map_frame()
   rotation(0,0) = x_vector[0]; rotation(1,0) = x_vector[1]; rotation(2,0) = x_vector[2];
   rotation(0,1) = y_vector[0]; rotation(1,1) = y_vector[1]; rotation(2,1) = y_vector[2];
   rotation(0,2) = z_vector[0]; rotation(1,2) = z_vector[1]; rotation(2,2) = z_vector[2];
-
-  camera_to_map_tf_ = Eigen::Isometry3d::Identity();
+camera_to_map_tf_ = Eigen::Isometry3d::Identity();
   camera_to_map_tf_.linear() = rotation;
   camera_to_map_tf_.translation() = yellow_marker_centroid;
   geometry_msgs::TransformStamped transform_msg = tf2::eigenToTransform(camera_to_map_tf_);
@@ -410,13 +409,25 @@ void ReggieLocalize::init_map_frame()
   blue_tf_msg.child_frame_id = "blue_marker";
   static_broadcaster_.sendTransform(blue_tf_msg);
 
-  //map_x_length_ = 0.635485
+  // map_x_length_ ~ 0.635485
   map_x_length_ = (yellow_marker_centroid - blue_marker_centroid).norm();
   map_y_length_ = (yellow_marker_centroid - green_marker_centroid).norm();
+  nh_.setParam("/map_x_length", map_x_length_);
+  nh_.setParam("/map_y_length", map_y_length_);
+
+  map_frame_initialized_ = true;
 }
 
 bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response)
 {
+  response.message = "";
+
+  // if the map_frame has not been initialized yet then we should wait for it to do so before trying to update robot pose
+  while (!map_frame_initialized_) {
+    ROS_WARN_STREAM("Shit um, this node has finished initializing. Good thing we prepared for this. Please hold.");
+    ros::Duration(1.0).sleep();
+  }
+
   float blue_r_avg, blue_g_avg, blue_a_avg, green_r_avg, green_g_avg, green_a_avg;
   nh_.getParam("/marker_color_ranges/blue/r_avg", blue_r_avg);
   nh_.getParam("/marker_color_ranges/blue/g_avg", blue_g_avg);
@@ -536,9 +547,10 @@ bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_
   geometry_msgs::TransformStamped transform_msg = tf2::eigenToTransform(map_to_robot_tf);
   transform_msg.header.frame_id = MAP_FRAME;
   transform_msg.child_frame_id = ROBOT_FRAME;
-  dynamic_broadcaster_.sendTransform(transform_msg);
+  static_broadcaster_.sendTransform(transform_msg);
 
   response.success = true;
+  return true;
 }
 
 int main(int argc, char **argv)

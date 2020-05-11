@@ -99,4 +99,5 @@ public:
   std::vector<Boundary> marker_boundaries_;
 
   float map_x_length_, map_y_length_;
+  bool map_frame_initialized_ = false;
 };
