@@ -1,7 +1,0 @@
-<launch>
-
-<rosparam command="load" file="$(find reggie_locator)/config/marker_color_ranges.yaml" />
-
-<node name="reggie_locator_node" pkg="reggie_locator" type="reggie_locator_node" output="screen" />
-
-</launch>

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>reggie_locator</name>
+  <name>reggie_localize</name>
   <version>0.0.1</version>
   <description>This package uses the kinect sensor output to localize the Reggie robot.</description>
   <maintainer email="sdale4@asu.edu">Stevie Dale</maintainer>
@@ -13,13 +13,15 @@
   <build_depend>pcl_conversions</build_depend>
   <build_depend>pcl_msgs</build_depend>
   <build_depend>visualization_msgs</build_depend>
-  
+  <build_depend>std_srvs</build_depend>
+
   <run_depend>roscpp</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>tf2_ros</run_depend>
   <run_depend>pcl_conversions</run_depend>
   <run_depend>pcl_msgs</run_depend>
   <run_depend>visualization_msgs</run_depend>
+  <run_depend>std_srvs</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

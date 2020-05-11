@@ -1,6 +1,6 @@
 #include <cstdlib>
 #include <math.h>
-#include <reggie_locator/k_means.h>
+#include <reggie_localize/k_means.h>
 #include <iostream>
 
 

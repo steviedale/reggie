@@ -4,7 +4,7 @@
 
 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find reggie_support)/rviz/crop_cloud.rviz" />
 
-<node name="crop_cloud_node" pkg="reggie_locator" type="crop_cloud" output="screen" >
+<node name="crop_cloud_node" pkg="reggie_localize" type="crop_cloud" output="screen" >
 
   <!-- DEFAULT MAP
   <param name="x_min" type="double" value="-0.726849" />

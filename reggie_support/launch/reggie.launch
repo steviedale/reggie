@@ -17,6 +17,6 @@
 
 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find reggie_support)/rviz/reggie.rviz" />
 
-<include file="$(find reggie_locator)/launch/reggie_locator.launch" />
+<include file="$(find reggie_localize)/launch/reggie_localize.launch" />
 
 </launch>

@@ -1,13 +1,14 @@
 #include <ros/ros.h>
+#include <std_srvs/Trigger.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/PolygonMesh.h>
-#include <Eigen/Dense>
-#include <string>
+//#include <Eigen/Dense>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <exception>
+#include <string>
 
 
 std::string CAMERA_FRAME = "camera_rgb_optical_frame";
@@ -44,10 +45,10 @@ struct EmptyCloudException : public std::exception
     }
 };
 
-class ReggieLocator
+class ReggieLocalize
 {
 public:
-  ReggieLocator();
+  ReggieLocalize();
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr get_point_cloud();
 
@@ -70,7 +71,7 @@ public:
 
   void init_map_frame();
 
-  void update_robot_location();
+  bool update_robot_pose(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
 
   // Variables //
   ros::NodeHandle nh_;
@@ -83,6 +84,8 @@ public:
   ros::Publisher blue_robot_marker_pub_;
   ros::Publisher green_robot_marker_pub_;
   ros::Publisher no_map_markers_pub_;
+
+  ros::ServiceServer update_robot_pose_srv_;
 
   tf2_ros::StaticTransformBroadcaster static_broadcaster_;
   tf2_ros::TransformBroadcaster dynamic_broadcaster_;

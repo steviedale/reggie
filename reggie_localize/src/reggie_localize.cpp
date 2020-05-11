@@ -1,4 +1,4 @@
-#include <reggie_locator/reggie_locator.h>
+#include <reggie_localize/reggie_localize.h>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
 
@@ -17,8 +17,6 @@
 #include <iostream>
 
 
-bool DEBUG = true;
-
 float percent_red(pcl::PointXYZRGB p)
 {
   return (float)p.r / ((float)p.r + (float)p.g + (float)p.b);
@@ -34,7 +32,7 @@ float alpha(pcl::PointXYZRGB p)
   return ((float)p.r + (float)p.g + (float)p.b) / (255.0 * 3.0);
 }
 
-ReggieLocator::ReggieLocator()
+ReggieLocalize::ReggieLocalize()
 : nh_()
 , camera_topic_("/camera/depth_registered/points")
 , cleaned_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("cleaned_map", 1))
@@ -46,21 +44,22 @@ ReggieLocator::ReggieLocator()
 , green_robot_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_robot_marker", 1))
 , no_map_markers_pub_(nh_.advertise<sensor_msgs::PointCloud2>("no_map_markers", 1))
 {
+  update_robot_pose_srv_ = nh_.advertiseService("update_robot_pose", &ReggieLocalize::update_robot_pose, this);
   ros::Duration(5.0).sleep();
   init_plane_normal();
   init_map_frame();
 
+  /*
   while (true)
   {
-    update_robot_location();
+    update_robot_pose();
     ros::Duration(0.1).sleep();
     std::cout << "location updated" << std::endl;
   }
-
-  ros::spin();
+  */
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::get_point_cloud()
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::get_point_cloud()
 {
   sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(camera_topic_, nh_);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -69,7 +68,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::get_point_cloud()
   return remove_nan_points(cloud_ptr);
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::remove_nan_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::remove_nan_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
 {
   // remove all points with x, y, or z = NaN
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -78,7 +77,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::remove_nan_points(pcl::Poi
   return new_cloud_ptr;
 }
 
-void ReggieLocator::init_plane_normal()
+void ReggieLocalize::init_plane_normal()
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr = get_point_cloud();
   pcl::SACSegmentation<pcl::PointXYZRGB> seg;
@@ -99,10 +98,10 @@ void ReggieLocator::init_plane_normal()
   }
 
   plane_normal_ = Eigen::Vector3d(coefficients->values.at(0), coefficients->values.at(1), coefficients->values.at(2));
-  if (DEBUG) std::cout << "Plane Coefficients: " << coefficients->values.at(0) << ", " << coefficients->values.at(1) << ", " << coefficients->values.at(2) << std::endl;
+  ROS_DEBUG_STREAM("Plane Coefficients: " << coefficients->values.at(0) << ", " << coefficients->values.at(1) << ", " << coefficients->values.at(2));
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_plane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, bool set_negative, float distance_thresh)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::segment_plane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, bool set_negative, float distance_thresh)
 {
   pcl::SACSegmentation<pcl::PointXYZRGB> seg;
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
@@ -130,7 +129,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_plane(pcl::PointCl
   return new_cloud_ptr;
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, Boundary boundary, bool set_negative)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::segment_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr, Boundary boundary, bool set_negative)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::copyPointCloud(*cloud_ptr, *new_cloud_ptr);
@@ -145,7 +144,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::segment_boundary(pcl::Poin
   return new_cloud_ptr;
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr,
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::filter_color_range(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr,
   float min_pr, float max_pr, float min_pg, float max_pg, float min_pa, float max_pa)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -173,9 +172,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_color_range(pcl::Po
   return new_cloud_ptr;
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::filter_biggest_cluster(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
 {
-  if (DEBUG) std::cout << "points in cloud: " << cloud_ptr->size() << std::endl;
+  ROS_DEBUG_STREAM("points in cloud: " << cloud_ptr->size());
   // get groups of clusters
   pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> euclidean_cluster;
   euclidean_cluster.setInputCloud(cloud_ptr);
@@ -185,7 +184,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl
   std::vector<pcl::PointIndices> cluster_groups;
   euclidean_cluster.extract(cluster_groups);
 
-  if (DEBUG) std::cout << "num_clusters: " << cluster_groups.size() << std::endl;
+  ROS_DEBUG_STREAM("num_clusters: " << cluster_groups.size());
 
   // if there are no cluster, throw exception
   if (cluster_groups.size() == 0)
@@ -199,7 +198,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl
   for (int i = 0; i < cluster_groups.size(); ++i)
   {
     int cluster_size = cluster_groups.at(i).indices.size();
-    if (DEBUG) std::cout << "cluster_size: " << cluster_size << std::endl;
+    ROS_DEBUG_STREAM("cluster_size: " << cluster_size);
     if (cluster_size > biggest_cluster_size)
     {
       biggest_cluster_size = cluster_size;
@@ -218,7 +217,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocator::filter_biggest_cluster(pcl
   return new_cloud_ptr;
 }
 
-Eigen::Vector3d ReggieLocator::get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
+Eigen::Vector3d ReggieLocalize::get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
 {
   Eigen::Vector3d centroid;
   for (int i = 0; i < cloud_ptr->size(); ++i)
@@ -231,9 +230,8 @@ Eigen::Vector3d ReggieLocator::get_centroid(pcl::PointCloud<pcl::PointXYZRGB>::P
   return centroid;
 }
 
-Boundary ReggieLocator::create_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
+Boundary ReggieLocalize::create_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr)
 {
-  std::cout << "CHECKPOINT 6" << std::endl;
   Boundary boundary;
 
   pcl::PointXYZRGB p0 = cloud_ptr->points.at(0);
@@ -262,11 +260,10 @@ Boundary ReggieLocator::create_boundary(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c
   boundary.max_y += EXCLUSION_BOUNDARY_PADDING;
   boundary.max_z += EXCLUSION_BOUNDARY_PADDING;
 
-  std::cout << "CHECKPOINT 7" << std::endl;
   return boundary;
 }
 
-void ReggieLocator::init_map_frame()
+void ReggieLocalize::init_map_frame()
 {
   float yellow_r_avg, yellow_g_avg, yellow_a_avg, green_r_avg, green_g_avg, green_a_avg, blue_r_avg,
     blue_g_avg, blue_a_avg;
@@ -332,32 +329,29 @@ void ReggieLocator::init_map_frame()
       break;
     } catch (ClusterNotFoundException& e) {
       attempts_left -= 1;
-      std::cout << "WARNING: Clustering corner markers failed (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      ROS_WARN_STREAM("Clustering corner markers failed (attempt " << 5 - attempts_left << " of 5)");
       if (attempts_left == 0) {
-        std::cout << "ERROR: Could not determine position of corner markers." << std::endl;
+        ROS_ERROR_STREAM("Could not determine position of corner markers.");
         exit(1);
       }
     } catch (EmptyCloudException& e) {
       attempts_left -= 1;
-      std::cout << "WARNING: Cloud empty after filtering. (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      ROS_WARN_STREAM("Cloud empty after filtering. (attempt " << 5 - attempts_left << " of 5)");
       if (attempts_left == 0) {
-        std::cout << "ERROR: Could not determine position of corner markers." << std::endl;
+        ROS_ERROR_STREAM("Could not determine position of corner markers.");
         exit(1);
       }
     }
   }
-  std::cout << "CHECKPOINT 1" << std::endl;
   // add marker boundaries to list
   marker_boundaries_.push_back(create_boundary(yellow_marker_cloud_ptr));
   marker_boundaries_.push_back(create_boundary(green_marker_cloud_ptr));
   marker_boundaries_.push_back(create_boundary(blue_marker_cloud_ptr));
-  std::cout << "CHECKPOINT 2" << std::endl;
   // calculate marker centroids
   Eigen::Vector3d yellow_marker_centroid = get_centroid(yellow_marker_cloud_ptr);
   Eigen::Vector3d green_marker_centroid = get_centroid(green_marker_cloud_ptr);
   Eigen::Vector3d blue_marker_centroid = get_centroid(blue_marker_cloud_ptr);
 
-  std::cout << "CHECKPOINT 3" << std::endl;
   // publish filtered marker clouds
   sensor_msgs::PointCloud2 yellow_cloud_msg;
   pcl::toROSMsg(*yellow_marker_cloud_ptr, yellow_cloud_msg);
@@ -374,7 +368,6 @@ void ReggieLocator::init_map_frame()
   blue_cloud_msg.header.frame_id = CAMERA_FRAME;
   blue_map_marker_pub_.publish(blue_cloud_msg);
 
-  std::cout << "CHECKPOINT 4" << std::endl;
   Eigen::Vector3d y_vector = (yellow_marker_centroid - green_marker_centroid);
   y_vector = -1 * y_vector / y_vector.norm();
 
@@ -384,11 +377,9 @@ void ReggieLocator::init_map_frame()
   Eigen::Vector3d x_vector = z_vector.cross(y_vector);
   x_vector = -1 * x_vector / x_vector.norm();
 
-  if (DEBUG) {
-    std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
-    std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
-    std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
-  }
+  ROS_DEBUG_STREAM("x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2]);
+  ROS_DEBUG_STREAM("y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2]);
+  ROS_DEBUG_STREAM("z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2]);
 
   Eigen::Matrix3d rotation;
   rotation(0,0) = x_vector[0]; rotation(1,0) = x_vector[1]; rotation(2,0) = x_vector[2];
@@ -424,7 +415,7 @@ void ReggieLocator::init_map_frame()
   map_y_length_ = (yellow_marker_centroid - green_marker_centroid).norm();
 }
 
-void ReggieLocator::update_robot_location()
+bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response)
 {
   float blue_r_avg, blue_g_avg, blue_a_avg, green_r_avg, green_g_avg, green_a_avg;
   nh_.getParam("/marker_color_ranges/blue/r_avg", blue_r_avg);
@@ -446,12 +437,10 @@ void ReggieLocator::update_robot_location()
         cloud_ptr = segment_boundary(cloud_ptr, marker_boundaries_.at(i), true);
       }
 
-      if (DEBUG) {
-        sensor_msgs::PointCloud2 no_map_markers_cloud_msg;
-        pcl::toROSMsg(*cloud_ptr, no_map_markers_cloud_msg);
-        no_map_markers_cloud_msg.header.frame_id = CAMERA_FRAME;
-        no_map_markers_pub_.publish(no_map_markers_cloud_msg);
-      }
+      sensor_msgs::PointCloud2 no_map_markers_cloud_msg;
+      pcl::toROSMsg(*cloud_ptr, no_map_markers_cloud_msg);
+      no_map_markers_cloud_msg.header.frame_id = CAMERA_FRAME;
+      no_map_markers_pub_.publish(no_map_markers_cloud_msg);
 
       // get blue robot marker cloud
       blue_marker_cloud_ptr = filter_color_range(cloud_ptr,
@@ -481,18 +470,19 @@ void ReggieLocator::update_robot_location()
       break;
     } catch (ClusterNotFoundException& e) {
       attempts_left -= 1;
-      std::cout << "Clustering robot position markers failed (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      ROS_WARN_STREAM("Clustering robot position markers failed (attempt " << 5 - attempts_left << " of 5)");
       if (attempts_left == 0)
       {
-        std::cout << "WARNING: Could not find robot position markers." << std::endl;
-        return;
+        ROS_WARN_STREAM("Could not find robot position markers.");
+        response.success = false;
       }
     } catch (EmptyCloudException& e) {
       attempts_left -= 1;
-      std::cout << "Cloud empty after filtering. (attempt " << 5 - attempts_left << " of 5)" << std::endl;
+      ROS_WARN_STREAM("Cloud empty after filtering. (attempt " << 5 - attempts_left << " of 5)");
       if (attempts_left == 0) {
-        std::cout << "WARNING: Could not determine position of robot." << std::endl;
-        return;
+        ROS_WARN_STREAM("Could not determine position of robot.");
+        response.success = false;
+        return false;
       }
     }
   }
@@ -519,11 +509,9 @@ void ReggieLocator::update_robot_location()
   Eigen::Vector3d x_vector = y_vector.cross(z_vector);
   x_vector = x_vector / x_vector.norm();
 
-  if (DEBUG) {
-    std::cout << "x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2] << std::endl;
-    std::cout << "y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2] << std::endl;
-    std::cout << "z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2] << std::endl;
-  }
+  ROS_DEBUG_STREAM("x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2]);
+  ROS_DEBUG_STREAM("y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2]);
+  ROS_DEBUG_STREAM("z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2]);
 
   Eigen::Matrix3d rotation;
   rotation(0,0) = x_vector[0];
@@ -549,10 +537,13 @@ void ReggieLocator::update_robot_location()
   transform_msg.header.frame_id = MAP_FRAME;
   transform_msg.child_frame_id = ROBOT_FRAME;
   dynamic_broadcaster_.sendTransform(transform_msg);
+
+  response.success = true;
 }
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "reggie_locator_node");
-  ReggieLocator reggie_locator;
+  ros::init(argc, argv, "reggie_localize_node");
+  ReggieLocalize reggie_localize;
+  ros::spin();
 }
