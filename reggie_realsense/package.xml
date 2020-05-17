@@ -1,0 +1,13 @@
+<package format="2">
+  <name>reggie_realsense</name>
+  <version>0.0.1</version>
+  <description>
+  Realsense camera setup for Reggie robot
+  </description>
+  <maintainer email="sdale4@asu.edu">Stevie Dale</maintainer>
+  <license>None</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>realsense2_camera</exec_depend>
+</package>
