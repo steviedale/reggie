@@ -1,5 +1,7 @@
 <launch>
 
+<node name="reggie_random_walk_node" pkg="reggie_random_walk" type="reggie_random_walk_node" />
+
 <node name="reggie_episode_node" pkg="reggie_episode" type="reggie_episode" >
   <param name="episode_directory" value="/home/stevie/reggie_ws/src/reggie/reggie_support/episodes" />
 </node>

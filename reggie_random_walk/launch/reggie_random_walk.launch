@@ -2,6 +2,6 @@
 
 <rosparam command="load" file="$(find reggie_random_walk)/config/reggie_random_walk.yaml" />
 
-<node name="reggie_random_walk" pkg="reggie_random_walk" type="reggie_random_walk_node" />
+<node name="reggie_random_walk" pkg="reggie_random_walk" type="reggie_random_walk_node" output="screen" />
 
 </launch>

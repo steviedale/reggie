@@ -15,5 +15,7 @@
 
   # if the measured pose is off (differs from estimate) by more than this setting, we ignore the measurement (or get another one)
   rotation_measurement_tolerance_radians: 0.3,
-  translation_measurement_tolerance_meters: 0.1
+  translation_measurement_tolerance_meters: 0.1,
+
+  record_episode: true
 }

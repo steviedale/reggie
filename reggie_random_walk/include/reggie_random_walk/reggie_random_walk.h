@@ -23,7 +23,7 @@ public:
 
   // Variables //
   ros::NodeHandle nh_;
-  ros::ServiceClient update_robot_pose_client_, simple_wheel_command_client_;
+  ros::ServiceClient update_robot_pose_client_, simple_wheel_command_client_, add_episode_element_client_, write_episode_client_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::StaticTransformBroadcaster static_broadcaster_;
@@ -38,6 +38,8 @@ public:
   float rotation_measurement_tolerance_radians_, translation_measurement_tolerance_meters_;
   // the number of bad measurements can be taken before we stop measuring and go with the estimate
   int allowed_measurement_attempts_ = 5;
+
+  bool record_episode_;
 
   Eigen::Vector3d center_point_;
   Eigen::Isometry3d robot_transform_;

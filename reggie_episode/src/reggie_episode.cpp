@@ -28,6 +28,7 @@ ReggieEpisode::ReggieEpisode()
 , pnh_("~")
 , add_episode_element_srv_(nh_.advertiseService("add_episode_element_srv", &ReggieEpisode::add_episode_element_cb, this))
 , write_episode_srv_(nh_.advertiseService("write_episode_srv", &ReggieEpisode::write_episode_cb, this))
+, yaml_node_(YAML::Load("[]"))
 {
   // get root episode directory
   pnh_.getParam("episode_directory", episode_directory_);
@@ -47,11 +48,12 @@ ReggieEpisode::ReggieEpisode()
     ROS_ERROR_STREAM("Could not create cloud directory at " << cloud_path);
     exit(1);
   }
-  yaml_node_["boo"] = "yah"; 
 }
 
 bool ReggieEpisode::add_episode_element_cb(reggie_support::EpisodeElement::Request& request, reggie_support::EpisodeElement::Response& response) 
 {
+  yaml_node_.push_back(YAML::Load(request.element));
+  response.success = true;
   return true;
 }
 
@@ -63,7 +65,7 @@ bool ReggieEpisode::write_episode_cb(std_srvs::Trigger::Request& request, std_sr
   fout.close();
 
   ROS_INFO_STREAM("Episode file written to " << yaml_file);
-  ROS_INFO_STREAM("yaml: " << yaml_node_);
+  ROS_INFO_STREAM("YAML: " << yaml_node_);
 
   response.success = true;
 

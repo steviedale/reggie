@@ -1,5 +1,10 @@
 <launch>
+
 <arg name="sim" default="true" />
+
+<node name="reggie_episode_node" pkg="reggie_episode" type="reggie_episode" >
+  <param name="episode_directory" value="/home/stevie/reggie_ws/src/reggie/reggie_support/episodes" />
+</node>
 
 <group if="$(arg sim)">
   <node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/kinect.bag" />

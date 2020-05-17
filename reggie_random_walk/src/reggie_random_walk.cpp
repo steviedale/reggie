@@ -6,6 +6,8 @@
 #include <reggie_support/WheelCommand.h>
 #include <iostream>
 #include <string>
+#include <reggie_support/EpisodeElement.h>
+#include <yaml-cpp/yaml.h>
 
 
 float PI = 3.141592;
@@ -47,8 +49,10 @@ ReggieRandomWalk::ReggieRandomWalk()
 : nh_()
 , tf_buffer_()
 , tf_listener_(tf_buffer_)
-, update_robot_pose_client_(nh_.serviceClient<std_srvs::Trigger>("update_robot_pose"))
-, simple_wheel_command_client_(nh_.serviceClient<reggie_support::WheelCommand>("simple_wheel_command"))
+, update_robot_pose_client_(nh_.serviceClient<std_srvs::Trigger>("/update_robot_pose"))
+, simple_wheel_command_client_(nh_.serviceClient<reggie_support::WheelCommand>("/simple_wheel_command"))
+, add_episode_element_client_(nh_.serviceClient<reggie_support::EpisodeElement>("/add_episode_element_srv"))
+, write_episode_client_(nh_.serviceClient<std_srvs::Trigger>("/write_episode_srv"))
 {
   while (
     !nh_.hasParam("/map_x_length") ||
@@ -62,7 +66,8 @@ ReggieRandomWalk::ReggieRandomWalk()
     !nh_.hasParam("/long_delta_translation_estimate_meters") ||
     !nh_.hasParam("/short_delta_translation_estimate_meters") ||
     !nh_.hasParam("/rotation_measurement_tolerance_radians") ||
-    !nh_.hasParam("/translation_measurement_tolerance_meters")
+    !nh_.hasParam("/translation_measurement_tolerance_meters") ||
+    !nh_.hasParam("/record_episode")
   ) { ROS_ERROR_STREAM("Waiting for parameters..."); ros::Duration(1.0).sleep(); }
 
   // dimensions of map
@@ -86,6 +91,17 @@ ReggieRandomWalk::ReggieRandomWalk()
   // if the predicted pose is off (differs from estimate) by more than this setting, we ignore the prediction (or get another one)
   nh_.getParam("/rotation_measurement_tolerance_radians", rotation_measurement_tolerance_radians_);
   nh_.getParam("/translation_measurement_tolerance_meters", translation_measurement_tolerance_meters_);
+
+  // if this is true, then we will write out information about the episode
+  nh_.getParam("/record_episode", record_episode_);
+
+  // wait for each service to come online
+  ROS_ERROR_STREAM("Waiting for clients");
+  update_robot_pose_client_.waitForExistence();
+  //simple_wheel_command_client_.waitForExistence();
+  add_episode_element_client_.waitForExistence();
+  write_episode_client_.waitForExistence();
+  ROS_INFO_STREAM("Finished waiting for clients");
 
   center_point_ = Eigen::Vector3d(map_x_length_/2, map_y_length_/2, 0.0);
   Eigen::Isometry3d center_point_tf = Eigen::Isometry3d::Identity();
@@ -189,6 +205,17 @@ void ReggieRandomWalk::set_orientation(float goal_rotation)
     wheel_command.request.long_move = long_move;
     wheel_command.request.command = (turn_left) ? LEFT_COMMAND : RIGHT_COMMAND;
 
+    YAML::Node turn_command_node;
+    turn_command_node["type"] = "turn_command";
+    turn_command_node["direction"] = (turn_left) ? "left" : "right";
+    turn_command_node["long_move"] = long_move;
+    reggie_support::EpisodeElement episode_element;
+    episode_element.request.element = YAML::Dump(turn_command_node);
+    add_episode_element_client_.call(episode_element);
+    std_srvs::Trigger trigger;
+    write_episode_client_.call(trigger);
+
+    /*
     int attempt_num = 1;
     while (true) {
       simple_wheel_command_client_.call(wheel_command);
@@ -204,14 +231,29 @@ void ReggieRandomWalk::set_orientation(float goal_rotation)
         exit(1);
       }
     }
+    */
     // update the rotation of the robot either via the measurement or estimate (if the measurement is bad)
     for (int i = 0; i < allowed_measurement_attempts_; ++i) {
+      YAML::Node measurement_node;
+      measurement_node["type"] = "measurement";
+
       call_update_robot_pose();
       Eigen::Isometry3d next_measured_transform = get_robot_transform();
       float next_measured_rotation = get_rotation(next_measured_transform);
       float measured_delta_rotation = next_measured_rotation - measured_rotation;
-
       float estimated_delta_rotation = (long_move) ? long_delta_rotation_estimate_radians_ : short_delta_rotation_estimate_radians_;
+
+      measurement_node["orientation"] = next_measured_rotation;
+      YAML::Node position_node;
+      position_node["x"] = next_measured_transform.linear()(0,0);
+      position_node["y"] = next_measured_transform.linear()(1,0);
+      measurement_node["position"] = position_node; 
+      reggie_support::EpisodeElement episode_element;
+      episode_element.request.element = YAML::Dump(measurement_node);
+      add_episode_element_client_.call(episode_element);
+      std_srvs::Trigger trigger;
+      write_episode_client_.call(trigger);
+
       if (!turn_left) estimated_delta_rotation *= -1.0;
 
       ROS_WARN_STREAM("measured_delta_rotation: " << rad_to_deg(measured_delta_rotation) << " deg");
@@ -222,6 +264,7 @@ void ReggieRandomWalk::set_orientation(float goal_rotation)
       // if the predicted change in rotation was intolerably more than estimated
       if (abs(measured_delta_rotation - estimated_delta_rotation) > rotation_measurement_tolerance_radians_ * (consecutive_estimates + 1)) {
         ROS_WARN_STREAM("Declined delta rotation measurement.");
+        measurement_node["accepted"] = false;
         // if this was the final bad attempt
         if (i+1 == allowed_measurement_attempts_) {
           // manually adjust transform based on estimate
@@ -234,6 +277,7 @@ void ReggieRandomWalk::set_orientation(float goal_rotation)
       // if the rotation measurement was good (within tolerance)
       else {
         ROS_WARN_STREAM("Accepted rotation measurement.");
+        measurement_node["accepted"] = true;
         robot_transform_ = next_measured_transform;
         consecutive_estimates = 0;
         break;
