@@ -1,6 +1,6 @@
 <launch>
 
-<rosparam command="load" file="$(find reggie_localize)/config/marker_color_ranges.yaml" />
+<rosparam command="load" file="$(find reggie_localize)/config/reggie_localize.yaml" />
 
 <node name="reggie_localize_node" pkg="reggie_localize" type="reggie_localize_node" output="screen" />
 

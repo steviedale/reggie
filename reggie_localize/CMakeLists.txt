@@ -40,8 +40,8 @@ add_executable(${PROJECT_NAME}_node src/reggie_localize.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
-#add_executable(crop_cloud src/crop_cloud.cpp)
-#target_link_libraries(crop_cloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_executable(crop_cloud src/crop_cloud.cpp)
+target_link_libraries(crop_cloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 #############
 ## Install ##

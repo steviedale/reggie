@@ -50,9 +50,13 @@ int main(int argc, char **argv)
 
   ros::Duration(1.0).sleep();
 
-  sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(CAMERA_TOPIC, nh);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::fromROSMsg(*cloud_msg_ptr, *cloud_ptr);
+  for (int i = 0; i < 10; ++i){
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
+    sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(CAMERA_TOPIC, nh);
+    pcl::fromROSMsg(*cloud_msg_ptr, *new_cloud_ptr);
+    *cloud_ptr += *new_cloud_ptr;
+  }
 
   pcl::CropBox<pcl::PointXYZRGB> box_filter;
   box_filter.setMin(Eigen::Vector4f(x_min, y_min, z_min, 1.0));
@@ -97,13 +101,19 @@ int main(int argc, char **argv)
     if (pa < a_min) a_min = pa;
     if (pa > a_max) a_max = pa;
   }
-  std::cout << "R: [ " << r_min << ",  " << r_max << " ]" << std::endl;
-  std::cout << "G: [ " << g_min << ",  " << g_max << " ]" << std::endl;
-  std::cout << "A: [ " << a_min << ",  " << a_max << " ]" << std::endl;
+  float r_avg = pr_total / cloud_ptr->size();
+  float g_avg = pg_total / cloud_ptr->size();
+  float a_avg = pa_total / cloud_ptr->size();
 
-  std::cout << "Avg(pr): " << pr_total / cloud_ptr->size() << std::endl;
-  std::cout << "Avg(pg): " << pg_total / cloud_ptr->size() << std::endl;
-  std::cout << "Avg(pa): " << pa_total / cloud_ptr->size() << std::endl;
+  std::cout << "    r_min: " << r_min << std::endl;
+  std::cout << "    r_max: " << r_max << std::endl;
+  std::cout << "    g_min: " << g_min << std::endl;
+  std::cout << "    g_max: " << g_max << std::endl;
+  std::cout << "    a_min: " << a_min << std::endl;
+  std::cout << "    a_max: " << a_max << std::endl;
+  std::cout << "    r_avg: " << r_avg << std::endl;
+  std::cout << "    g_avg: " << g_avg << std::endl;
+  std::cout << "    a_avg: " << a_avg << std::endl;
 
   ros::spin();
 }

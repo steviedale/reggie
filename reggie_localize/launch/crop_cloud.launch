@@ -16,33 +16,31 @@
   -->
 
   <!-- YELLOW MAP
-  <param name="x_min" type="double" value="0.387" />
-  <param name="x_max" type="double" value="0.405" />
-  <param name="y_min" type="double" value="0.145" />
+  <param name="x_min" type="double" value="0.415" />
+  <param name="x_max" type="double" value="0.43" />
+  <param name="y_min" type="double" value="0.14" />
   <param name="y_max" type="double" value="0.16" />
   <param name="z_min" type="double" value="0.9" />
   <param name="z_max" type="double" value="1.34" />
   -->
 
   <!-- GREEN MAP
-  <param name="x_min" type="double" value="-0.4" />
-  <param name="x_max" type="double" value="-0.38" />
-  <param name="y_min" type="double" value="0.135" />
-  <param name="y_max" type="double" value="0.15" />
+  <param name="x_min" type="double" value="-0.38" />
+  <param name="x_max" type="double" value="-0.36" />
+  <param name="y_min" type="double" value="0.115" />
+  <param name="y_max" type="double" value="0.135" />
   <param name="z_min" type="double" value="0.9" />
   <param name="z_max" type="double" value="1.34" />
   -->
 
   <!-- BLUE MAP
   -->
-  <param name="x_min" type="double" value="0.399" />
-  <param name="x_max" type="double" value="0.42" />
-  <param name="y_min" type="double" value="-0.5" />
-  <param name="y_max" type="double" value="-0.48" />
-  <param name="z_min" type="double" value="1.014" />
+  <param name="x_min" type="double" value="0.44" />
+  <param name="x_max" type="double" value="0.455" />
+  <param name="y_min" type="double" value="-0.505" />
+  <param name="y_max" type="double" value="-0.49" />
+  <param name="z_min" type="double" value="1.28" />
   <param name="z_max" type="double" value="1.331" />
-  <!--
-  -->
 
 </node>
 

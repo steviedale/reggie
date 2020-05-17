@@ -1,0 +1,4 @@
+- git:
+    local-name: yaml-cpp
+    uri: 'https://github.com/jbeder/yaml-cpp.git'
+    version: master

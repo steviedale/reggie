@@ -1,13 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(reggie_driver)
 
-find_package(catkin REQUIRED COMPONENTS 
-  message_generation 
-)
+find_package(catkin REQUIRED)
 
-add_service_files(DIRECTORY srv FILES WheelCommand.srv)
-generate_messages(DEPENDENCIES)
-catkin_package(CATKIN_DEPENDS message_runtime)
+catkin_package(CATKIN_DEPENDS)
 
 catkin_install_python(PROGRAMS
   scripts/wheel_controller.py

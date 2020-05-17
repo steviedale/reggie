@@ -99,13 +99,13 @@ Visualization Manager:
                 {}
               green_marker:
                 {}
-              map_frame:
-                base_link:
-                  chassis:
-                    left_wheel:
-                      {}
-                    right_wheel:
-                      {}
+        map_frame:
+          base_link:
+            chassis:
+              left_wheel:
+                {}
+              right_wheel:
+                {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -309,7 +309,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -326,7 +326,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -339,7 +339,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -356,7 +356,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:

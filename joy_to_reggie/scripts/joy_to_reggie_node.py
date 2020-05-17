@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from reggie_driver.srv import WheelCommand
+from reggie_support.srv import WheelCommand
 from sensor_msgs.msg import Joy
 
 

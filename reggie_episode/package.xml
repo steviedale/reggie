@@ -1,26 +1,20 @@
 <?xml version="1.0"?>
 <package>
-  <name>reggie_random_walk</name>
+  <name>reggie_episode</name>
   <version>0.0.1</version>
-  <description>This package coordinates a random walk of the Reggie robot.</description>
+  <description>A package containing a service node that collects episode information and stores them in a yaml file.</description>
   <maintainer email="sdale4@asu.edu">Stevie Dale</maintainer>
   <license>None</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>roscpp</build_depend>
-  <build_depend>tf2_ros</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>std_srvs</build_depend>
-  <build_depend>tf2_eigen</build_depend>
   <build_depend>reggie_support</build_depend>
+  <build_depend>std_srvs</build_depend>
 
   <run_depend>roscpp</run_depend>
-  <run_depend>tf2_ros</run_depend>
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>std_srvs</run_depend>
-  <run_depend>tf2_eigen</run_depend>
   <run_depend>reggie_support</run_depend>
+  <run_depend>std_srvs</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -16,8 +16,6 @@ std::string MAP_FRAME = "map_frame";
 std::string ROBOT_FRAME = "base_link";
 float EXCLUSION_BOUNDARY_PADDING = 0.05;
 float MARKER_BOUNDARY_PADDING = 0.02;
-float COLOR_TOLERANCE = 0.07;
-float ALPHA_TOLERANCE = 0.2;
 
 
 struct Boundary {
@@ -50,7 +48,7 @@ class ReggieLocalize
 public:
   ReggieLocalize();
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr get_point_cloud();
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr get_point_cloud(int num_clouds=1);
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr remove_nan_points(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr);
 
@@ -100,4 +98,7 @@ public:
 
   float map_x_length_, map_y_length_;
   bool map_frame_initialized_ = false;
+  float color_tolerance_;
+  float alpha_tolerance_;
+  bool cluster_markers_;
 };

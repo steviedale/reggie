@@ -1,0 +1,19 @@
+{
+  # this will determine at what point we should stop taking long movements and start taking short ones
+  switch_to_short_rotation_threshold_radians: 1.507,      # PI / 2 radians
+  switch_to_short_translation_threshold_meters: 0.1,     # 10 cm
+
+  # this will determine when we are close enough to the target to stop moving
+  radians_from_goal_tolerance: 0.31415,                 # PI / 10 radians
+  meters_from_goal_tolerance: 0.03,                     # 3 cm
+
+  # this will be used to estimate what the pose should be after a give action
+  long_delta_rotation_estimate_radians: 0.57,
+  short_delta_rotation_estimate_radians: 0.1,
+  long_delta_translation_estimate_meters: 0.03,
+  short_delta_translation_estimate_meters: 0.07,
+
+  # if the measured pose is off (differs from estimate) by more than this setting, we ignore the measurement (or get another one)
+  rotation_measurement_tolerance_radians: 0.3,
+  translation_measurement_tolerance_meters: 0.1
+}

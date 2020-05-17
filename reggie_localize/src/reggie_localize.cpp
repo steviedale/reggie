@@ -43,8 +43,20 @@ ReggieLocalize::ReggieLocalize()
 , blue_robot_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("blue_robot_marker", 1))
 , green_robot_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_robot_marker", 1))
 , no_map_markers_pub_(nh_.advertise<sensor_msgs::PointCloud2>("no_map_markers", 1))
+, update_robot_pose_srv_(nh_.advertiseService("update_robot_pose", &ReggieLocalize::update_robot_pose, this))
 {
-  update_robot_pose_srv_ = nh_.advertiseService("update_robot_pose", &ReggieLocalize::update_robot_pose, this);
+  while (!nh_.hasParam("/color_tolerance") || !nh_.hasParam("/alpha_tolerance")) { ros::Duration(0.5).sleep(); }
+  nh_.getParam("color_tolerance", color_tolerance_);
+  nh_.getParam("alpha_tolerance", alpha_tolerance_);
+  nh_.getParam("cluster_markers", cluster_markers_);
+  if (cluster_markers_){
+    ROS_ERROR_STREAM("cluster_markers_ set to true");
+  } else {
+    ROS_ERROR_STREAM("cluster_markers_ set to false");
+  }
+  ROS_ERROR_STREAM("color_tolerance: " << color_tolerance_);
+  ROS_ERROR_STREAM("alpha_tolerance: " << alpha_tolerance_);
+
   ros::Duration(5.0).sleep();
   init_plane_normal();
   init_map_frame();
@@ -59,12 +71,16 @@ ReggieLocalize::ReggieLocalize()
   */
 }
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::get_point_cloud()
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::get_point_cloud(int num_clouds)
 {
-  sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(camera_topic_, nh_);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::fromROSMsg(*cloud_msg_ptr, *cloud_ptr);
-  std::cout << "num points: " << cloud_ptr->size() << std::endl;
+  for (int i = 0; i < num_clouds; ++i){
+    std::cout << "getting pcl..." << std::endl;
+    sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(camera_topic_, nh_);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::fromROSMsg(*cloud_msg_ptr, *new_cloud_ptr);
+    *cloud_ptr += *new_cloud_ptr;
+  }
   return remove_nan_points(cloud_ptr);
 }
 
@@ -79,7 +95,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::remove_nan_points(pcl::Po
 
 void ReggieLocalize::init_plane_normal()
 {
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr = get_point_cloud();
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr = get_point_cloud(5);
   pcl::SACSegmentation<pcl::PointXYZRGB> seg;
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
   pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
@@ -179,7 +195,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::filter_biggest_cluster(pc
   pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> euclidean_cluster;
   euclidean_cluster.setInputCloud(cloud_ptr);
   euclidean_cluster.setClusterTolerance(0.005);
-  euclidean_cluster.setMinClusterSize(6);
+  euclidean_cluster.setMinClusterSize(10);
   euclidean_cluster.setMaxClusterSize(1000);
   std::vector<pcl::PointIndices> cluster_groups;
   euclidean_cluster.extract(cluster_groups);
@@ -282,48 +298,48 @@ void ReggieLocalize::init_map_frame()
   int attempts_left = 5;
   while(true) {
     try {
-      cloud_ptr = get_point_cloud();
+      cloud_ptr = get_point_cloud(5);
 
       cloud_ptr = segment_plane(cloud_ptr, false, 0.02);
 
       // get yellow cloud patch
       yellow_marker_cloud_ptr = filter_color_range(
         cloud_ptr,
-        yellow_r_avg - COLOR_TOLERANCE,
-        yellow_r_avg + COLOR_TOLERANCE,
-        yellow_g_avg - COLOR_TOLERANCE,
-        yellow_g_avg + COLOR_TOLERANCE,
-        yellow_a_avg - ALPHA_TOLERANCE,
-        yellow_a_avg + ALPHA_TOLERANCE
+        yellow_r_avg - color_tolerance_,
+        yellow_r_avg + color_tolerance_,
+        yellow_g_avg - color_tolerance_,
+        yellow_g_avg + color_tolerance_,
+        yellow_a_avg - alpha_tolerance_,
+        yellow_a_avg + alpha_tolerance_
       );
-      yellow_marker_cloud_ptr = filter_biggest_cluster(yellow_marker_cloud_ptr);
-      if (yellow_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+      if (cluster_markers_) yellow_marker_cloud_ptr = filter_biggest_cluster(yellow_marker_cloud_ptr);
+      if (yellow_marker_cloud_ptr->size() == 0) { ROS_ERROR_STREAM("Yellow marker cloud empty"); throw EmptyCloudException(); }
 
       // get green cloud patch
       green_marker_cloud_ptr = filter_color_range(
         cloud_ptr,
-        green_r_avg - COLOR_TOLERANCE,
-        green_r_avg + COLOR_TOLERANCE,
-        green_g_avg - COLOR_TOLERANCE,
-        green_g_avg + COLOR_TOLERANCE,
-        green_a_avg - ALPHA_TOLERANCE,
-        green_a_avg + ALPHA_TOLERANCE
+        green_r_avg - color_tolerance_,
+        green_r_avg + color_tolerance_,
+        green_g_avg - color_tolerance_,
+        green_g_avg + color_tolerance_,
+        green_a_avg - alpha_tolerance_,
+        green_a_avg + alpha_tolerance_
       );
-      green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
-      if (green_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+      if (cluster_markers_) green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
+      if (green_marker_cloud_ptr->size() == 0) { ROS_ERROR_STREAM("Green marker cloud empty"); throw EmptyCloudException(); }
 
       // get blue cloud patch
       blue_marker_cloud_ptr = filter_color_range(
         cloud_ptr,
-        blue_r_avg - COLOR_TOLERANCE,
-        blue_r_avg + COLOR_TOLERANCE,
-        blue_g_avg - COLOR_TOLERANCE,
-        blue_g_avg + COLOR_TOLERANCE,
-        blue_a_avg - ALPHA_TOLERANCE,
-        blue_a_avg + ALPHA_TOLERANCE
+        blue_r_avg - color_tolerance_,
+        blue_r_avg + color_tolerance_,
+        blue_g_avg - color_tolerance_,
+        blue_g_avg + color_tolerance_,
+        blue_a_avg - alpha_tolerance_,
+        blue_a_avg + alpha_tolerance_
       );
-      blue_marker_cloud_ptr = filter_biggest_cluster(blue_marker_cloud_ptr);
-      if (blue_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
+      if (cluster_markers_) blue_marker_cloud_ptr = filter_biggest_cluster(blue_marker_cloud_ptr);
+      if (blue_marker_cloud_ptr->size() == 0) { ROS_ERROR_STREAM("Blue marker cloud empty"); throw EmptyCloudException(); }
 
       // exit loop
       break;
@@ -385,7 +401,7 @@ void ReggieLocalize::init_map_frame()
   rotation(0,0) = x_vector[0]; rotation(1,0) = x_vector[1]; rotation(2,0) = x_vector[2];
   rotation(0,1) = y_vector[0]; rotation(1,1) = y_vector[1]; rotation(2,1) = y_vector[2];
   rotation(0,2) = z_vector[0]; rotation(1,2) = z_vector[1]; rotation(2,2) = z_vector[2];
-camera_to_map_tf_ = Eigen::Isometry3d::Identity();
+  camera_to_map_tf_ = Eigen::Isometry3d::Identity();
   camera_to_map_tf_.linear() = rotation;
   camera_to_map_tf_.translation() = yellow_marker_centroid;
   geometry_msgs::TransformStamped transform_msg = tf2::eigenToTransform(camera_to_map_tf_);
@@ -441,7 +457,7 @@ bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_
   int attempts_left = 5;
   while (true) {
     try {
-      cloud_ptr = get_point_cloud();
+      cloud_ptr = get_point_cloud(3);
 
       // remove map markers
       for (int i = 0; i < marker_boundaries_.size(); ++i) {
@@ -455,27 +471,27 @@ bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_
 
       // get blue robot marker cloud
       blue_marker_cloud_ptr = filter_color_range(cloud_ptr,
-        blue_r_avg - COLOR_TOLERANCE,
-        blue_r_avg + COLOR_TOLERANCE,
-        blue_g_avg - COLOR_TOLERANCE,
-        blue_g_avg + COLOR_TOLERANCE,
-        blue_a_avg - ALPHA_TOLERANCE,
-        blue_a_avg + ALPHA_TOLERANCE
+        blue_r_avg - color_tolerance_,
+        blue_r_avg + color_tolerance_,
+        blue_g_avg - color_tolerance_,
+        blue_g_avg + color_tolerance_,
+        blue_a_avg - alpha_tolerance_,
+        blue_a_avg + alpha_tolerance_
       );
-      blue_marker_cloud_ptr = filter_biggest_cluster(blue_marker_cloud_ptr);
+      if (cluster_markers_) blue_marker_cloud_ptr = filter_biggest_cluster(blue_marker_cloud_ptr);
       if (blue_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
 
       // get green robot marker cloud
       green_marker_cloud_ptr = filter_color_range(
         cloud_ptr,
-        green_r_avg - COLOR_TOLERANCE,
-        green_r_avg + COLOR_TOLERANCE,
-        green_g_avg - COLOR_TOLERANCE,
-        green_g_avg + COLOR_TOLERANCE,
-        green_a_avg - ALPHA_TOLERANCE,
-        green_a_avg + ALPHA_TOLERANCE
+        green_r_avg - color_tolerance_,
+        green_r_avg + color_tolerance_,
+        green_g_avg - color_tolerance_,
+        green_g_avg + color_tolerance_,
+        green_a_avg - alpha_tolerance_,
+        green_a_avg + alpha_tolerance_
       );
-      green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
+      if (cluster_markers_) green_marker_cloud_ptr = filter_biggest_cluster(green_marker_cloud_ptr);
       if (green_marker_cloud_ptr->size() == 0) { throw EmptyCloudException(); }
 
       break;

@@ -1,0 +1,40 @@
+{
+marker_color_ranges: {
+  yellow: {
+    r_min: 0.375546,
+    r_max: 0.572289,
+    g_min: 0.34434,
+    g_max: 0.45805,
+    a_min: 0.433987,
+    a_max: 0.700654,
+    r_avg: 0.476229,
+    g_avg: 0.398711,
+    a_avg: 0.588688
+  },
+  green: {
+    r_min: 0.307865,
+    r_max: 0.42638,
+    g_min: 0.343324,
+    g_max: 0.509202,
+    a_min: 0.423529,
+    a_max: 0.581699,
+    r_avg: 0.349065,
+    g_avg: 0.423496,
+    a_avg: 0.509103
+  },
+  blue: {
+    r_min: 0.207424,
+    r_max: 0.22869,
+    g_min: 0.262473,
+    g_max: 0.292111,
+    a_min: 0.569935,
+    a_max: 0.628758,
+    r_avg: 0.220722,
+    g_avg: 0.278109,
+    a_avg: 0.599867
+  }
+},
+color_tolerance: 0.07,
+alpha_tolerance: 0.15,
+cluster_markers: true
+}
