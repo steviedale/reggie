@@ -2,6 +2,8 @@
 
 <arg name="sim" default="true" />
 
+<rosparam command="load" file="$(find reggie_support)/config/reggie_support.yaml" />
+
 <node name="reggie_episode_node" pkg="reggie_episode" type="reggie_episode" >
   <param name="episode_directory" value="/home/stevie/reggie_ws/src/reggie/reggie_support/episodes" />
 </node>
@@ -11,7 +13,11 @@
 </group>
 
 <group unless="$(arg sim)">
+  <!--
   <include file="$(find reggie_kinect)/launch/reggie_kinect.launch"/>
+  -->
+  <include file="$(find reggie_realsense)/launch/reggie_realsense.launch" />
+
   <node name="joy" pkg="joy" type="joy_node" />
   <node name="joy_to_reggie" pkg="joy_to_reggie" type="joy_to_reggie_node.py" />
 </group>

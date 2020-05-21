@@ -11,7 +11,6 @@
 #include <string>
 
 
-std::string CAMERA_FRAME = "camera_rgb_optical_frame";
 std::string MAP_FRAME = "map_frame";
 std::string ROBOT_FRAME = "base_link";
 float EXCLUSION_BOUNDARY_PADDING = 0.05;
@@ -89,6 +88,8 @@ public:
   tf2_ros::TransformBroadcaster dynamic_broadcaster_;
 
   std::string camera_topic_;
+  std::string camera_frame_;
+  std::string robot_frame_;
 
   Eigen::Isometry3d camera_to_map_tf_;
 

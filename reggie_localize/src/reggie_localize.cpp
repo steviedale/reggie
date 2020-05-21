@@ -34,7 +34,6 @@ float alpha(pcl::PointXYZRGB p)
 
 ReggieLocalize::ReggieLocalize()
 : nh_()
-, camera_topic_("/camera/depth_registered/points")
 , cleaned_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("cleaned_map", 1))
 , raw_map_pub_(nh_.advertise<sensor_msgs::PointCloud2>("raw_map", 1))
 , green_map_marker_pub_(nh_.advertise<sensor_msgs::PointCloud2>("green_map_marker", 1))
@@ -45,10 +44,18 @@ ReggieLocalize::ReggieLocalize()
 , no_map_markers_pub_(nh_.advertise<sensor_msgs::PointCloud2>("no_map_markers", 1))
 , update_robot_pose_srv_(nh_.advertiseService("update_robot_pose", &ReggieLocalize::update_robot_pose, this))
 {
-  while (!nh_.hasParam("/color_tolerance") || !nh_.hasParam("/alpha_tolerance")) { ros::Duration(0.5).sleep(); }
+  while (
+    !nh_.hasParam("/color_tolerance") || 
+    !nh_.hasParam("/alpha_tolerance") ||
+    !nh_.hasParam("/cluster_markers") ||
+    !nh_.hasParam("/camera_topic") ||
+    !nh_.hasParam("/camera_frame")
+  ) { ros::Duration(1.0).sleep(); }
   nh_.getParam("color_tolerance", color_tolerance_);
   nh_.getParam("alpha_tolerance", alpha_tolerance_);
   nh_.getParam("cluster_markers", cluster_markers_);
+  nh_.getParam("camera_topic", camera_topic_);
+  nh_.getParam("camera_frame", camera_frame_);
   if (cluster_markers_){
     ROS_ERROR_STREAM("cluster_markers_ set to true");
   } else {
@@ -371,17 +378,17 @@ void ReggieLocalize::init_map_frame()
   // publish filtered marker clouds
   sensor_msgs::PointCloud2 yellow_cloud_msg;
   pcl::toROSMsg(*yellow_marker_cloud_ptr, yellow_cloud_msg);
-  yellow_cloud_msg.header.frame_id = CAMERA_FRAME;
+  yellow_cloud_msg.header.frame_id = camera_frame_;
   yellow_map_marker_pub_.publish(yellow_cloud_msg);
 
   sensor_msgs::PointCloud2 green_cloud_msg;
   pcl::toROSMsg(*green_marker_cloud_ptr, green_cloud_msg);
-  green_cloud_msg.header.frame_id = CAMERA_FRAME;
+  green_cloud_msg.header.frame_id = camera_frame_;
   green_map_marker_pub_.publish(green_cloud_msg);
 
   sensor_msgs::PointCloud2 blue_cloud_msg;
   pcl::toROSMsg(*blue_marker_cloud_ptr, blue_cloud_msg);
-  blue_cloud_msg.header.frame_id = CAMERA_FRAME;
+  blue_cloud_msg.header.frame_id = camera_frame_;
   blue_map_marker_pub_.publish(blue_cloud_msg);
 
   Eigen::Vector3d y_vector = (yellow_marker_centroid - green_marker_centroid);
@@ -405,7 +412,7 @@ void ReggieLocalize::init_map_frame()
   camera_to_map_tf_.linear() = rotation;
   camera_to_map_tf_.translation() = yellow_marker_centroid;
   geometry_msgs::TransformStamped transform_msg = tf2::eigenToTransform(camera_to_map_tf_);
-  transform_msg.header.frame_id = CAMERA_FRAME;
+  transform_msg.header.frame_id = camera_frame_;
   transform_msg.child_frame_id = MAP_FRAME;
   static_broadcaster_.sendTransform(transform_msg);
 
@@ -413,7 +420,7 @@ void ReggieLocalize::init_map_frame()
   green_tf.linear() = rotation;
   green_tf.translation() = green_marker_centroid;
   geometry_msgs::TransformStamped green_tf_msg = tf2::eigenToTransform(green_tf);
-  green_tf_msg.header.frame_id = CAMERA_FRAME;
+  green_tf_msg.header.frame_id = camera_frame_;
   green_tf_msg.child_frame_id = "green_marker";
   static_broadcaster_.sendTransform(green_tf_msg);
 
@@ -421,7 +428,7 @@ void ReggieLocalize::init_map_frame()
   blue_tf.linear() = rotation;
   blue_tf.translation() = blue_marker_centroid;
   geometry_msgs::TransformStamped blue_tf_msg = tf2::eigenToTransform(blue_tf);
-  blue_tf_msg.header.frame_id = CAMERA_FRAME;
+  blue_tf_msg.header.frame_id = camera_frame_;
   blue_tf_msg.child_frame_id = "blue_marker";
   static_broadcaster_.sendTransform(blue_tf_msg);
 
@@ -466,7 +473,7 @@ bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_
 
       sensor_msgs::PointCloud2 no_map_markers_cloud_msg;
       pcl::toROSMsg(*cloud_ptr, no_map_markers_cloud_msg);
-      no_map_markers_cloud_msg.header.frame_id = CAMERA_FRAME;
+      no_map_markers_cloud_msg.header.frame_id = camera_frame_;
       no_map_markers_pub_.publish(no_map_markers_cloud_msg);
 
       // get blue robot marker cloud
@@ -516,12 +523,12 @@ bool ReggieLocalize::update_robot_pose(std_srvs::Trigger::Request& request, std_
 
   sensor_msgs::PointCloud2 blue_cloud_msg;
   pcl::toROSMsg(*blue_marker_cloud_ptr, blue_cloud_msg);
-  blue_cloud_msg.header.frame_id = CAMERA_FRAME;
+  blue_cloud_msg.header.frame_id = camera_frame_;
   blue_robot_marker_pub_.publish(blue_cloud_msg);
 
   sensor_msgs::PointCloud2 green_cloud_msg;
   pcl::toROSMsg(*green_marker_cloud_ptr, green_cloud_msg);
-  green_cloud_msg.header.frame_id = CAMERA_FRAME;
+  green_cloud_msg.header.frame_id = camera_frame_;
   green_robot_marker_pub_.publish(green_cloud_msg);
 
   Eigen::Vector3d blue_marker_centroid = get_centroid(blue_marker_cloud_ptr);
