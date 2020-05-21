@@ -26,9 +26,7 @@ float alpha(pcl::PointXYZRGB p)
 
 int main(int argc, char **argv)
 {
-  std::string CAMERA_TOPIC = "/camera/depth_registered/points";
-  std::string FRAME_ID = "camera_rgb_optical_frame";
-
+  std::string camera_topic, camera_frame;
   ros::init(argc, argv, "crop_cloud_node");
   ros::NodeHandle nh;
   ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>("cloud", 1);
@@ -40,6 +38,8 @@ int main(int argc, char **argv)
   nh.getParam("/crop_cloud_node/y_max", y_max);
   nh.getParam("/crop_cloud_node/z_min", z_min);
   nh.getParam("/crop_cloud_node/z_max", z_max);
+  nh.getParam("/crop_cloud_node/camera_topic", camera_topic);
+  nh.getParam("/crop_cloud_node/camera_frame", camera_frame);
 
   std::cout << "min x: " << x_min << std::endl;
   std::cout << "max x: " << x_max << std::endl;
@@ -47,16 +47,21 @@ int main(int argc, char **argv)
   std::cout << "max y: " << y_max << std::endl;
   std::cout << "min z: " << z_min << std::endl;
   std::cout << "max z: " << z_max << std::endl;
+  std::cout << "camera_topic: " << camera_topic << std::endl;
+  std::cout << "camera_frame: " << camera_frame << std::endl;
 
   ros::Duration(1.0).sleep();
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   for (int i = 0; i < 10; ++i){
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
-    sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(CAMERA_TOPIC, nh);
+    std::cout << "waiting for message..." << std::endl;
+    sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(camera_topic, nh);
+    std::cout << "message received ;)" << std::endl;
     pcl::fromROSMsg(*cloud_msg_ptr, *new_cloud_ptr);
     *cloud_ptr += *new_cloud_ptr;
   }
+  std::cout << "num points: " << cloud_ptr->points.size() << std::endl;
 
   pcl::CropBox<pcl::PointXYZRGB> box_filter;
   box_filter.setMin(Eigen::Vector4f(x_min, y_min, z_min, 1.0));
@@ -68,7 +73,7 @@ int main(int argc, char **argv)
 
   sensor_msgs::PointCloud2 cloud_msg;
   pcl::toROSMsg(*cloud_ptr, cloud_msg);
-  cloud_msg.header.frame_id = FRAME_ID;
+  cloud_msg.header.frame_id = camera_frame;
   pub.publish(cloud_msg);
 
   float r_min, r_max, g_min, g_max, a_min, a_max;

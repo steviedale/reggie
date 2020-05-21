@@ -1,6 +1,6 @@
 <launch>
 
-<node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/kinect.bag"/>
+<node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/realsense.bag"/>
 
 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find reggie_support)/rviz/crop_cloud.rviz" />
 
@@ -16,32 +16,33 @@
   -->
 
   <!-- YELLOW MAP
-  <param name="x_min" type="double" value="0.415" />
-  <param name="x_max" type="double" value="0.43" />
-  <param name="y_min" type="double" value="0.14" />
-  <param name="y_max" type="double" value="0.16" />
-  <param name="z_min" type="double" value="0.9" />
-  <param name="z_max" type="double" value="1.34" />
+  <param name="x_min" type="double" value="0.36" />
+  <param name="x_max" type="double" value="0.375" /> 
+  <param name="y_min" type="double" value="0.32" />
+  <param name="y_max" type="double" value="0.34" />
+  <param name="z_min" type="double" value="-10" />
+  <param name="z_max" type="double" value="10" />
   -->
 
   <!-- GREEN MAP
-  <param name="x_min" type="double" value="-0.38" />
-  <param name="x_max" type="double" value="-0.36" />
-  <param name="y_min" type="double" value="0.115" />
-  <param name="y_max" type="double" value="0.135" />
-  <param name="z_min" type="double" value="0.9" />
-  <param name="z_max" type="double" value="1.34" />
   -->
+  <param name="x_min" type="double" value="-0.43" />
+  <param name="x_max" type="double" value="-0.42" /> 
+  <param name="y_min" type="double" value="0.35" />
+  <param name="y_max" type="double" value="0.365" />
+  <param name="z_min" type="double" value="-10" />
+  <param name="z_max" type="double" value="10" />
 
   <!-- BLUE MAP
-  -->
-  <param name="x_min" type="double" value="0.44" />
-  <param name="x_max" type="double" value="0.455" />
-  <param name="y_min" type="double" value="-0.505" />
-  <param name="y_max" type="double" value="-0.49" />
-  <param name="z_min" type="double" value="1.28" />
-  <param name="z_max" type="double" value="1.331" />
-
+  <param name="x_min" type="double" value="0.34" />
+  <param name="x_max" type="double" value="0.35" /> 
+  <param name="y_min" type="double" value="-0.29" />
+  <param name="y_max" type="double" value="-0.28" />
+  <param name="z_min" type="double" value="-10" />
+  <param name="z_max" type="double" value="10" />
+  --> 
+  <param name="camera_topic" type="str" value="/camera/depth/color/points" />
+  <param name="camera_frame" type="str" value="camera_depth_optical_frame" />
 </node>
 
 </launch>
