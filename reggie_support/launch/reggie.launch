@@ -9,7 +9,7 @@
 </node>
 
 <group if="$(arg sim)">
-  <node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/kinect.bag" />
+  <node pkg="rosbag" type="play" name="player" args="-l $(find reggie_support)/bags/realsense.bag" />
 </group>
 
 <group unless="$(arg sim)">

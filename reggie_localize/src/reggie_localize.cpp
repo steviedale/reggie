@@ -61,8 +61,6 @@ ReggieLocalize::ReggieLocalize()
   } else {
     ROS_ERROR_STREAM("cluster_markers_ set to false");
   }
-  ROS_ERROR_STREAM("color_tolerance: " << color_tolerance_);
-  ROS_ERROR_STREAM("alpha_tolerance: " << alpha_tolerance_);
 
   ros::Duration(5.0).sleep();
   init_plane_normal();
@@ -82,7 +80,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ReggieLocalize::get_point_cloud(int num_c
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
   for (int i = 0; i < num_clouds; ++i){
-    std::cout << "getting pcl..." << std::endl;
+    std::cout << "getting point cloud..." << std::endl;
     sensor_msgs::PointCloud2::ConstPtr cloud_msg_ptr = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(camera_topic_, nh_);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr new_cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::fromROSMsg(*cloud_msg_ptr, *new_cloud_ptr);
@@ -400,25 +398,29 @@ void ReggieLocalize::init_map_frame()
   Eigen::Vector3d x_vector = z_vector.cross(y_vector);
   x_vector = -1 * x_vector / x_vector.norm();
 
+  /*
   ROS_DEBUG_STREAM("x_vector: " << x_vector[0] << ", " << x_vector[1] << ", " << x_vector[2]);
   ROS_DEBUG_STREAM("y_vector: " << y_vector[0] << ", " << y_vector[1] << ", " << y_vector[2]);
   ROS_DEBUG_STREAM("z_vector: " << z_vector[0] << ", " << z_vector[1] << ", " << z_vector[2]);
+  */
 
   Eigen::Matrix3d rotation;
   rotation(0,0) = x_vector[0]; rotation(1,0) = x_vector[1]; rotation(2,0) = x_vector[2];
   rotation(0,1) = y_vector[0]; rotation(1,1) = y_vector[1]; rotation(2,1) = y_vector[2];
   rotation(0,2) = z_vector[0]; rotation(1,2) = z_vector[1]; rotation(2,2) = z_vector[2];
+
   camera_to_map_tf_ = Eigen::Isometry3d::Identity();
-  camera_to_map_tf_.linear() = rotation;
   camera_to_map_tf_.translation() = yellow_marker_centroid;
+  camera_to_map_tf_.linear() = rotation;
   geometry_msgs::TransformStamped transform_msg = tf2::eigenToTransform(camera_to_map_tf_);
   transform_msg.header.frame_id = camera_frame_;
   transform_msg.child_frame_id = MAP_FRAME;
   static_broadcaster_.sendTransform(transform_msg);
 
   Eigen::Isometry3d green_tf = Eigen::Isometry3d::Identity();
-  green_tf.linear() = rotation;
   green_tf.translation() = green_marker_centroid;
+  green_tf.linear() = rotation;
+
   geometry_msgs::TransformStamped green_tf_msg = tf2::eigenToTransform(green_tf);
   green_tf_msg.header.frame_id = camera_frame_;
   green_tf_msg.child_frame_id = "green_marker";

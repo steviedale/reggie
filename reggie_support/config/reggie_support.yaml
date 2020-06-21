@@ -1,4 +1,4 @@
 {
-  camera_frame: camera_depth_frame,
-  camera_topic: "/camera/depth/color/points",
+  camera_frame: "camera_depth_optical_frame",
+  camera_topic: "camera/depth/color/points",
 }
